@@ -103,8 +103,9 @@ unwrapped = {
     'm25': 'taxon name (as it appears in the PSM file) to exclude '
            'from the analysis eg. Human.',
     'm26': 'column to search the experiment prefixes in',
-    'm27': 'signal/noise ratio threshold for filtering (integer). Default=10'
-}
+    'm27': 'signal/noise ratio threshold for filtering (integer). Default=10',
+    'm28': 'balancing method, choose either borderline, over_under, '
+            'smote or unbalanced'}
 
 other_ms = {k: '\n'.join(wrap(unwrapped[k])) for k in unwrapped.keys()}
 
@@ -169,7 +170,8 @@ dic_5 = {'-i': ['--input', str, other_ms['m16'], True],
          '-md': ['--min_dist', float, other_ms['m15u1'], False, 0.1],
          '-n': ['--n_neighbors', float, other_ms['m15u2'], False],
          '-u': ['--hdbscan_on_umap', bool, other_ms['m22'], False],
-         '-a': ['--additional-file', str, other_ms['m10b'], False]}
+         '-a': ['--additional-file', str, other_ms['m10b'], False],
+         '-b': ['--balancing_method', str, other_ms['m28'], True]}
 
 #   6- full analysis post diagnostics:
 dic_6 = dic_4.copy()
@@ -247,6 +249,8 @@ def argument_check(user_args):
     allowed_search_engines = ['Mascot', 'Sequest.HT']
     allowed_columns = ['Spectrum.File', 'File.ID']
     allowed_tsne_methods = ['exact', 'barnes_hut', 'fft']
+    allowed_balancing_methods = ['borderline', 'over_under',
+                                 'smote', 'unbalanced']
     for k in user_args.keys():
         if k in input_files:
             if user_args[k] is None:
@@ -271,6 +275,11 @@ def argument_check(user_args):
             if user_args[k] not in allowed_tsne_methods:
                 print('unrecognized tsne methods, please choose among: '
                       'barnes_hut or exact')
+                return sys.exit(-1)
+        if k == 'balancing_method':
+            if user_args[k] not in allowed_balancing_methods:
+                print('unrecognized balancing method, please choose among: '
+                      f'{allowed_balancing_methods}')
                 return sys.exit(-1)
         if k == 'perplexity':
             try:
