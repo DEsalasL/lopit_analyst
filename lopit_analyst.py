@@ -169,7 +169,8 @@ def cluster_data(args):  # workflow 5- subparser: clustering
                                     args['min_size'],
                                     args['min_sample'],
                                     args['n_neighbors'],
-                                    args['additional_file'])
+                                    args['additional_file'],
+                                    args['balancing_method'])
     return clusters
 
 
