@@ -348,7 +348,7 @@ def knn_classification(df, train_size, accuracy_threshold,
     knn_model.fit(x_train, y_train)
     pred = knn_model.predict(x_test)
     accuracy = report(y_test, pred, 'KNN', marker_dic)
-    # predict classification for whole dataset excluding entries with markers
+    # predict classification for whole dataset
     ndf = prediction_on_data(knn_model, tmt_data, tmt_label,
                              'KNN.prediction', marker_dic)
     #  ---
@@ -375,7 +375,7 @@ def random_forest_classification(df, train_size, accuracy_threshold,
     rf.fit(x_train, y_train)
     pred = rf.predict(x_test)
     accuracy = report(y_test, pred, 'Random_forest', marker_dic)
-    # predict classification for whole dataset without entries with markers
+    # predict classification for whole dataset
     ndf = prediction_on_data(rf, tmt_data, tmt_label,
                              'Random.forest.prediction', marker_dic)
     #  ---
@@ -402,7 +402,7 @@ def naive_bayes_classifier(df, train_size, accuracy_threshold,
     gnb.fit(x_train, y_train)
     pred = gnb.predict(x_test)
     accuracy = report(y_test, pred, 'Naive_Bayes', marker_dic)
-    # predict classification for whole dataset without entries with markers
+    # predict classification for whole dataset
     ndf = prediction_on_data(gnb, tmt_data, tmt_label,
                              'Naive.Bayes', marker_dic)
     # ---
