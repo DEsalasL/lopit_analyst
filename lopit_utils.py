@@ -13,7 +13,7 @@ import plotly.express as px
 from itertools import product
 import matplotlib.pyplot as plt
 from pypdf import PdfMerger, PdfReader
-from SVM_KNN_RF_clustering import write_df
+from SVM_KNN_RF_clustering import write_mydf
 from itertools import combinations, zip_longest
 from matplotlib.backends.backend_pdf import PdfPages
 from dash import Dash, dcc, html, Input, Output, callback
@@ -222,6 +222,9 @@ def experiment_assigment(df, exp_pref, col):
         sys.exit(-1)
     groups = []
     rawnames = []
+    if isinstance(exp_pref, list) and len(exp_pref) == 2:
+        ename, vname = exp_pref[0], exp_pref[1]
+        exp_pref = {vname: ename}
     for k in exp_pref.keys():
         raw = list(set(df[col].to_list()))
         rawnames.extend(raw)
@@ -287,12 +290,23 @@ def renaming_columns(df, rename_cols, outname):
     return cats
 
 
+def modifications_checkup(df):
+    terms = ['N-Term(TMTpro)', 'TMT']
+    x= df['Modifications'].str.contains('|'.join(terms))
+    modif = [i for i in set(x.tolist()) if i is True][0]
+    return modif
+
+
 def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args, usecol):
 
     # dtype for each column is automatically recognized
-
-    df = pd.read_csv(filein, sep='\t', header=0, engine='python',
-                     na_values=['NA', ''])
+    try:
+        df = pd.read_csv(filein, sep='\t', header=0, engine='python',
+                         na_values=['NA', ''])
+    except:
+        print('file cannot be read as dataframe (it is likely the '
+              'wrong file type). Exiting program')
+        sys.exit(-1)
     # patch to eliminate blank spaces in quantitative data (bug in PD3.1)
     tmt_cols_prep = df.filter(regex=r'^Abundance ').columns.to_list()
     for col in tmt_cols_prep:
@@ -316,6 +330,13 @@ def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args, usecol):
     ndf = experiment_assigment(df, exp_pref, usecol)
     if rename_cols is not None:
         _ = channel_exist(df, rename_cols)
+
+    # checking if TMT labels are present in modifications col
+    if modifications_checkup(df) is False:
+        print('No TMT modifications are present in input table. '
+              'Exiting program')
+        sys.exit(-1)
+
     #  --- optional: grouping by experiments for channel renaming
     if isinstance(rename_cols, dict):
         gdfs = renaming_columns(ndf, rename_cols, outname)
@@ -332,6 +353,7 @@ def phenodata_prep(filein, outname, args):
     df.columns = df.columns.str.replace('[ |.]', '.', regex=True)
     cols = df.columns.to_list()
     try:
+        s = df[['Tag.name', 'Sample.name']]
         equiv = {'Experiment.name': 'Experiment', 'Tag': 'Tag.id',
                  'Sample.name': 'Tag', 'Tag.name': 'Original.Tag'}
         new_names = {col: equiv[col] for col in cols if col in equiv.keys()}
@@ -339,12 +361,16 @@ def phenodata_prep(filein, outname, args):
         df.to_csv(f'{outname}_formatted_phenodata.tsv', sep='\t',
                   index=False)# na_rep='NA')
     except:
-        expected_cols = ['Sample.name', 'Experiment.name',
-                         'Biological.sample.name',
-                         'File.ID', 'Tag', 'Tag.name', 'Gradient.type',
-                         'Gradient.media', 'Gradient.osmotic.conditions',
-                         'Gradient.fraction ', 'RI', 'Peptide.amount']
-        print(f'Expected column names are: {expected_cols}')
+        expected_cols = ['Experiment', 'File.ID', 'Tag',
+                         'Peptide.amount']
+        intersection = [col for col in df.columns.to_list()
+                        if col in expected_cols]
+        if len(intersection) == len(expected_cols):
+            df.to_csv(f'{outname}_formatted_phenodata.tsv',
+                      sep='\t', index=False)  # na_rep='NA')
+        else:
+            print(f'Minimum expected column names are: {expected_cols}.\n'
+                  f'Exiting program')
         sys.exit(-1)
     #  write command
     _ = command_line_out('pheno_data', **args)
@@ -358,12 +384,9 @@ def proteins_prep(filein, file_out, search_engine, args):
     df = df.convert_dtypes()
     df.rename(columns={'Number.of.Peptides': 'Number.of.Peptides.total'},
               inplace=True)
-    keep = ['Protein.FDR.Confidence.Combined', 'Master',
-            'Protein.Group.IDs',
-            'Accession', 'Sequence', 'Exp.q.value.Combined', 'Contaminant',
-            'Marked.as', 'Sum.PEP.Score',
-            'Number.of.Decoy.Protein.Combined',
-            'Coverage.in.Percent', 'Number.of.Peptides.total', 'Number.of.PSMs',
+    keep = ['Master', 'Protein.Group.IDs', 'Accession', 'Sequence',
+            'Contaminant', 'Marked.as', 'Coverage.in.Percent',
+            'Number.of.Peptides.total', 'Number.of.PSMs',
             'Number.of.Protein.Unique.Peptides',
             'Number.of.Unique.Peptides',
             'Number.of.AAs', 'MW.in.kDa', 'calc.pI',
@@ -371,9 +394,11 @@ def proteins_prep(filein, file_out, search_engine, args):
             f'Number.of.PSMs.by.Search.Engine.{search_engine}',
             f'Number.of.Peptides.by.Search.Engine.{search_engine}']
 
-    optional = ['Biological.Process', 'Cellular.Component',
+    optional = ['Protein.FDR.Confidence.Combined', 'Exp.q.value.Combined',
+                'Biological.Process', 'Cellular.Component', 'Sum.PEP.Score',
                 'Molecular.Function', 'Pfam.IDs', 'GO.Accessions',
-                'Entrez.Gene.ID', 'Modifications']
+                'Entrez.Gene.ID', 'Modifications',
+                'Number.of.Decoy.Protein.Combined']
     for col in optional:
         if col in df.columns.to_list():
             keep.append(col)
@@ -505,7 +530,7 @@ def df_merger(main_input, mf1, af2, outname):
                                            'tagm.map.probability',
                                            'tagm.map.outlier',
                                            'tagm.map.allocation.cutoff_0.90']]
-        final_df = write_df([main_df, extra_df_subset],
+        final_df = write_mydf([main_df, extra_df_subset],
                             'tagm_added',
                      False, '0.90')
 

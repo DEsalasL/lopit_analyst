@@ -250,7 +250,8 @@ def aggregation(df, dfprot, taginf):
     #   ---   combine feature by median   ---   #
     merged.sort_values('Experiment', ascending=True)
     merged.to_csv('median.tsv', sep='\t', index=False)
-    _ = venn(merged)
+    if len(set(merged.Experiment.tolist())) > 1:
+        _ = venn(merged)
     renormalized = normalization(merged)
     renormalized.index.name = 'PSMs.Peptide.ID'
     renormalized.reset_index(inplace=True)
@@ -349,7 +350,7 @@ def venn(df):
     # plt.show()
     plt.clf()
     plt.close()
-    return
+    return 'Done'
 
 
 def sorted_channels(current_tmtcols, other):
@@ -500,7 +501,7 @@ def imputation(odf, imp_params):
             dfs.append(imputed2)
 
         else:
-            print('WTF entering else!')
+            print('Unknown reason triggers else statement in imputation')
             imputed1.to_csv(f'imputed.{exp}.MinDet.only.tmp.tsv',
                             sep='\t', index=False)
             dfs.append(imputed1)

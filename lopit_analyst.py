@@ -4,7 +4,6 @@ import os
 import sys
 import charms
 import lopit_utils
-import pandas as pd
 import lopit_menu as lm
 import mv_removal as mvr
 import data_filtering as flt
@@ -169,9 +168,18 @@ def cluster_data(args):  # workflow 5- subparser: clustering
                                     args['min_size'],
                                     args['min_sample'],
                                     args['n_neighbors'],
-                                    args['additional_file'],
-                                    args['balancing_method'])
+                                    args['additional_file'])
     return clusters
+
+
+def predict_compartments(args): # workflow 7 subparser sml
+    dfs_dic, markers = sml.traverse(args['input'], args['out_name'],
+                                    args['recognition_motif'],
+                                    args['markers_file'])
+    predictions = sml.parallel_prediction(dfs_dic,
+                                          args['balancing_method'],
+                                          markers)
+    return predictions
 
 
 def automated_analysis(args):  # workflow 6- subparser: full_analysis
@@ -192,23 +200,6 @@ def automated_analysis(args):  # workflow 6- subparser: full_analysis
     clusters = cluster_data(args)
     _ = gc.collect()
     return clusters
-
-
-def cluster_classification(args):
-    print('Supervised machine learning protocol has started')
-    if (args['input'] is not None and
-            os.path.isfile(os.path.abspath(args['input']))):
-        idf = pd.read_csv(args['input'], sep='\t', header=0, engine='python')
-    else:
-        print('input provided does not Exist. Exiting program...')
-        sys.exit(-1)
-    fdf, marker_df = sml.supervised_clustering(idf,
-                                               args['markers_file'],
-                                               train_size=0.7,
-                                               accuracy_threshold=0.90)
-    final_df = sml.write_df([idf, fdf, marker_df],
-                            args['out_name'])
-    return final_df
 
 
 #   ---   Execute program   ---   #
@@ -238,5 +229,5 @@ elif arguments['subparser_name'] == 'clustering':
     _ = cluster_data(arguments)
 elif arguments['subparser_name'] == 'full_analysis':
     _ = automated_analysis(arguments)
-elif arguments['subparser_name'] == 'ml_classification':
-    _ = cluster_classification(arguments)
+elif arguments['subparser_name'] == 'sml':
+    _ = predict_compartments(arguments)

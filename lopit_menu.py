@@ -105,7 +105,8 @@ unwrapped = {
     'm26': 'column to search the experiment prefixes in',
     'm27': 'signal/noise ratio threshold for filtering (integer). Default=10',
     'm28': 'balancing method, choose either borderline, over_under, '
-            'smote or unbalanced'}
+            'smote or unbalanced',
+    'm29': 'motif for file recognition, e.g., Final_df*'}
 
 other_ms = {k: '\n'.join(wrap(unwrapped[k])) for k in unwrapped.keys()}
 
@@ -170,8 +171,7 @@ dic_5 = {'-i': ['--input', str, other_ms['m16'], True],
          '-md': ['--min_dist', float, other_ms['m15u1'], False, 0.1],
          '-n': ['--n_neighbors', float, other_ms['m15u2'], False],
          '-u': ['--hdbscan_on_umap', bool, other_ms['m22'], False],
-         '-a': ['--additional-file', str, other_ms['m10b'], False],
-         '-b': ['--balancing_method', str, other_ms['m28'], True]}
+         '-a': ['--additional-file', str, other_ms['m10b'], False]}
 
 #   6- full analysis post diagnostics:
 dic_6 = dic_4.copy()
@@ -181,7 +181,9 @@ dic_6.update(shared_dic)
 #  7- stand-alone machine learning classification
 dic_7 = {'-i': ['--input', str, other_ms['m16'], True],
          '-o': ['--out_name', str, 'output prefix', True],
-         '-m': ['--markers_file', str, other_ms['m10a'], False]}
+         '-m': ['--markers_file', str, other_ms['m10a'], True],
+         '-r': ['--recognition_motif', str, other_ms['m29'], True],
+         '-b': ['--balancing_method', str, other_ms['m28'], True]}
 
 #   --- subparsers  ---   #
 
@@ -195,7 +197,7 @@ def default(dic, k):
 
 submenus = ['data_prep', 'diagnostics', 'filtering', 'mv_removal',
             'imputation_aggregation', 'clustering', 'full_analysis',
-            'ml_classification']
+            'sml']
 submenus = [subparsers.add_parser(i) for i in submenus]
 
 groups = [submenu.add_argument_group(other_ms['m1'], other_ms['m2'])

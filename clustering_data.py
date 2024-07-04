@@ -13,7 +13,6 @@ from functools import reduce
 from collections import Counter
 from itertools import combinations
 # from memory_profiler import profile
-import SVM_KNN_RF_clustering as sml
 from joblib import Parallel, delayed
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
@@ -465,7 +464,7 @@ def projections(odf, dataset, sizes, loop_dic):
     return 'Done'
 
 
-def df_integration(df1, df2, dataset, balancing_method):
+def df_integration(df1, df2, dataset):
     #   ---   integrating charms into main df  ---   #
     df_in1 = pd.merge(df1, df2, on='Accession', how='left')
     #   ---   calculating quantiles and psms sums by prot group ---   #
@@ -475,23 +474,9 @@ def df_integration(df1, df2, dataset, balancing_method):
             del ndf[i]
     fpath = os.path.join(os.getcwd(), f'Final_df_{dataset}.tsv')
     ndf.to_csv(fpath, sep='\t', index=False)
-    if 'marker' in ndf.columns.to_list():
-        if len(list(set(ndf['marker'].to_list()))) != 1:
-            nndf, mfile = sml.supervised_clustering(ndf,
-                                                    '',
-                                                    train_size=0.7,
-                                                    accuracy_threshold=0.90,
-                                                    smote_type=balancing_method,
-                                                    neighbors=2)
-            fndf = sml.write_df([ndf, nndf], dataset,
-                                True, '')
-            return fndf
-        else:
-            return ndf
-    else:
-        return ndf
+    return ndf
 
-
+''
 def feature_projections(df, coord1, coord2, dataset, c_type, dic):
     cols = df.columns.to_list()
     updated_dic = {k: dic[k] for k in dic.keys() if dic[k][0] in cols}
@@ -505,6 +490,8 @@ def feature_projections(df, coord1, coord2, dataset, c_type, dic):
 
 
 def create_dic_df(files_list):
+    if isinstance(files_list, str):
+        files_list = [files_list]
     my_dfs = {}
     for entry in files_list:
         if isinstance(entry, pd.DataFrame):
@@ -696,7 +683,7 @@ def accessory_data(entry1, entry2, entry3):
 
 def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
                  hdbscan_on_umap, features_df, epsilon, min_dist, min_size,
-                 min_sample, n_neighbors, annotations_df, balancing_method):
+                 min_sample, n_neighbors, annotations_df):
 
     print(f'***   Working on Dataset {dataset}   ***')
     newdir = gr.new_dir(f'{dataset}')
@@ -815,7 +802,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     # #   ---  df integration with protein features  ---  #
     if not features_df.empty:
         integrated_df = df_integration(progress_df4, features_df,
-                                       dataset, balancing_method)
+                                       dataset)
 
         #   ---   Feature projections   ---   #
 
@@ -845,7 +832,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
         final_merged = pd.merge(integrated_df, annotations_df,
                                 on='Accession', how='left')
         fpath = os.path.join(os.getcwd(),
-                             f'Final_df_{dataset}_SML.AccessoryInfo.tsv')
+                             f'Final_df_{dataset}.AccessoryInfo.tsv')
         final_merged.to_csv(fpath, sep='\t', index=False)
 
     os.chdir('..')
@@ -858,7 +845,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
 def cluster_analysis(files_list, features, datasets, tsne_method,
                      perplexity, mymarkers, fileout, hdbscan_on_umap,
                      epsilon, mindist, min_size, min_sample, n_neighbors,
-                     additional_info, balancing_method):
+                     additional_info):
 
     print('*** - Beginning of clustering workflow - ***\n')
     markers_map, features_df, annotations_df = accessory_data(mymarkers,
@@ -882,7 +869,7 @@ def cluster_analysis(files_list, features, datasets, tsne_method,
                                            hdbscan_on_umap, features_df,
                                            epsilon, mindist, min_size,
                                            min_sample, n_neighbors,
-                                           annotations_df, balancing_method)
+                                           annotations_df)
                                    for dataset in datasets)
     #  calculate shared clusters in files from all dfs_paths
     shared_clusters = lopit_utils.clusters_across_datasets(all_clst)

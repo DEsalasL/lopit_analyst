@@ -1,3 +1,4 @@
+import glob
 import os
 import re
 import sys
@@ -6,6 +7,7 @@ import pandas as pd
 from sklearn import svm
 from functools import reduce
 from collections import Counter
+from joblib import Parallel, delayed
 from imblearn.pipeline import Pipeline
 from sklearn.pipeline import make_pipeline
 from sklearn.naive_bayes import GaussianNB
@@ -40,9 +42,10 @@ def predef_message(ml_method, acc, req_acc):
 
 def markers_map(marker_df):
     markers = list(marker_df['marker'].unique())
-    classes = [str(i) for i in range(0, len(markers))]
+    classes = [i for i in range(0, len(markers))]
     dic = dict(zip(markers, classes))
-    return dic
+    inv_dic = {dic[k]: k for k in dic.keys()}
+    return dic, inv_dic
 
 
 def borderline_smote_estimation(x, y, neighbors=2):
@@ -120,8 +123,9 @@ def my_train_test_split(df_data, train_size,
 
     # spliting markers for training and test
     only_markers = ndf_data[ndf_data.marker != 'unknown'].copy(deep=True)
-    marker_dic = markers_map(only_markers)
-    only_markers['marker'] = only_markers['marker'].map(marker_dic)
+    # encoding categorical labels into numeric ones
+    dir_marker_dic, inv_marker_dic = markers_map(only_markers)
+    only_markers['marker'] = only_markers['marker'].map(dir_marker_dic)
     # # split into input and output elements
     x, y = only_markers.iloc[:, : -1], only_markers.iloc[:, -1]
     # label encode the target variable
@@ -148,7 +152,10 @@ def my_train_test_split(df_data, train_size,
         # create training and test dataset for balanced classes
         x_train, x_test, y_train, y_test = train_test_split(
             x, y, test_size=train_size, random_state=42)
-    return x_train, x_test, y_train, y_test, marker_dic
+        # return numeric labels to categorical labels
+        y_train = [inv_marker_dic.get(i, i) for i in y_train]
+        y_test = [inv_marker_dic.get(i, i) for i in y_test]
+    return x_train, x_test, y_train, y_test
 
 
 def data_for_prediction(df):
@@ -160,7 +167,7 @@ def data_for_prediction(df):
     return tmt_df, tmt_label
 
 
-def prediction_on_data(model, data, data_label, prediction_type, marker_dic):
+def prediction_on_data(model, data, data_label, prediction_type):
     if prediction_type == 'Naive Bayes':
         data_transformed = PowerTransformer().fit_transform(data)
         whole_pred = model.predict(data_transformed)
@@ -168,8 +175,6 @@ def prediction_on_data(model, data, data_label, prediction_type, marker_dic):
         whole_pred = model.predict(data)
     pdf = pd.DataFrame(zip(whole_pred, data_label),
                        columns=[f'{prediction_type}', 'Accession'])
-    inv_marker_dic = {marker_dic[k]: k for k in marker_dic.keys()}
-    pdf[f'{prediction_type}'] = pdf[f'{prediction_type}'].map(inv_marker_dic)
     return pdf
 
 
@@ -224,10 +229,10 @@ def calculate_probabilities(model, pred_labels, x_train, x_test,
 def svm_classification(df, train_size, accuracy_threshold,
                        smote_type, neighbors):
     # create training and test sets
-    x_train, x_test, y_train, y_test, marker_dic = my_train_test_split(df,
-                                                                       train_size,
-                                                                       smote_type,
-                                                                       neighbors)
+    x_train, x_test, y_train, y_test = my_train_test_split(df,
+                                                           train_size,
+                                                           smote_type,
+                                                           neighbors)
     tmt_data, tmt_label = data_for_prediction(df)
     # Define model
     # tuning C and gamma
@@ -250,10 +255,10 @@ def svm_classification(df, train_size, accuracy_threshold,
     # problem might be related to the small dataset size. see predict_proba
     # SVC documentation
 
-    accuracy = report(y_test, pred_labels, 'SVM', marker_dic)
+    accuracy = report(y_test, pred_labels, 'SVM')
     # predict classification for whole dataset
     ndf = prediction_on_data(model, tmt_data, tmt_label,
-                             'SVM.prediction', marker_dic)
+                             'SVM.prediction')
     #  ---
     if accuracy < accuracy_threshold:
         _ = predef_message('SVM', accuracy, accuracy_threshold)
@@ -262,7 +267,7 @@ def svm_classification(df, train_size, accuracy_threshold,
     return ndf
 
 
-def format_report(classificatior_report, marker_dic):
+def format_report(classificatior_report):
     rep = {'macro avg': 'macro_avg', 'weighted avg': 'weighted_avg'}
     rep = dict((re.escape(k), v) for k, v in rep.items())
     pattern = re.compile("|".join(rep.keys()))
@@ -283,8 +288,6 @@ def format_report(classificatior_report, marker_dic):
                                     columns=['precision', 'recall',
                                              'f1-score', 'support'])
     acc_df = acc_df.reset_index().rename(columns={'index': 'marker'})
-    inv_dic = {str(marker_dic[k]): k for k in marker_dic.keys()}
-    acc_df['marker'] = acc_df['marker'].replace(inv_dic)
     return acc_df
 
 
@@ -296,12 +299,11 @@ def write_xls(prediction_type, df1, df2):
         return 'Done'
 
 
-def report(y_test, pred_labels, prediction_type, marker_dic):
-    labels = list(marker_dic.keys())
+def report(y_test, pred_labels, prediction_type):
     # 'confusion matrix by classes
     cf_matrix = multilabel_confusion_matrix(y_test, pred_labels,
-                                            labels=labels)
-    tmp = pd.DataFrame.from_dict(dict(zip(labels, cf_matrix.tolist())),
+                                            labels=y_test)
+    tmp = pd.DataFrame.from_dict(dict(zip(y_test, cf_matrix.tolist())),
                                  orient='index')
     tmp.rename(columns={0: 'True positives(TP)-False Negatives(FN)',
                         1: 'False positives(FP)-True Negatives(TN)'},
@@ -317,7 +319,7 @@ def report(y_test, pred_labels, prediction_type, marker_dic):
     #  note: if a category is not represented in the data apply 0 to
     #  precision (avoid average issue caused by zero division)
     class_report = classification_report(y_test, pred_labels, zero_division=0)
-    report_df = format_report(class_report, marker_dic)
+    report_df = format_report(class_report)
     accuracy = accuracy_score(y_test, pred_labels)
     _ = write_xls(prediction_type, cf_matrix_df, report_df)
     return accuracy
@@ -326,10 +328,10 @@ def report(y_test, pred_labels, prediction_type, marker_dic):
 def knn_classification(df, train_size, accuracy_threshold,
                        smote_type, neighbors):
     # create training and test sets
-    x_train, x_test, y_train, y_test, marker_dic = my_train_test_split(df,
-                                                                       train_size,
-                                                                       smote_type,
-                                                                       neighbors)
+    x_train, x_test, y_train, y_test = my_train_test_split(df,
+                                                           train_size,
+                                                           smote_type,
+                                                           neighbors)
     tmt_data, tmt_label = data_for_prediction(df)
     # best params
     best_params = hyperparameter_tuning(x_train, y_train, 'KNN')
@@ -347,10 +349,10 @@ def knn_classification(df, train_size, accuracy_threshold,
                                                    weights='uniform'))
     knn_model.fit(x_train, y_train)
     pred = knn_model.predict(x_test)
-    accuracy = report(y_test, pred, 'KNN', marker_dic)
+    accuracy = report(y_test, pred, 'KNN')
     # predict classification for whole dataset
     ndf = prediction_on_data(knn_model, tmt_data, tmt_label,
-                             'KNN.prediction', marker_dic)
+                             'KNN.prediction')
     #  ---
     if accuracy < accuracy_threshold:
         _ = predef_message('KNN', accuracy, accuracy_threshold)
@@ -362,10 +364,10 @@ def knn_classification(df, train_size, accuracy_threshold,
 def random_forest_classification(df, train_size, accuracy_threshold,
                                  smote_type, neighbors):
     # create training and test sets
-    x_train, x_test, y_train, y_test, marker_dic = my_train_test_split(df,
-                                                                       train_size,
-                                                                       smote_type,
-                                                                       neighbors)
+    x_train, x_test, y_train, y_test = my_train_test_split(df,
+                                                           train_size,
+                                                           smote_type,
+                                                           neighbors)
     tmt_data, tmt_label = data_for_prediction(df)
     # best params: the algorith kept failing due to string to float in markers.
     # Hence, it is hyperparemeter tuning is not implemented for rf
@@ -374,10 +376,10 @@ def random_forest_classification(df, train_size, accuracy_threshold,
                        RandomForestClassifier())
     rf.fit(x_train, y_train)
     pred = rf.predict(x_test)
-    accuracy = report(y_test, pred, 'Random_forest', marker_dic)
+    accuracy = report(y_test, pred, 'Random_forest')
     # predict classification for whole dataset
     ndf = prediction_on_data(rf, tmt_data, tmt_label,
-                             'Random.forest.prediction', marker_dic)
+                             'Random.forest.prediction')
     #  ---
     if accuracy < accuracy_threshold:
         _ = predef_message('Random Forest',
@@ -390,10 +392,10 @@ def random_forest_classification(df, train_size, accuracy_threshold,
 def naive_bayes_classifier(df, train_size, accuracy_threshold,
                            smote_type, neighbors):
     # create training and test sets
-    x_train, x_test, y_train, y_test, marker_dic = my_train_test_split(df,
-                                                                       train_size,
-                                                                       smote_type,
-                                                                       neighbors)
+    x_train, x_test, y_train, y_test = my_train_test_split(df,
+                                                           train_size,
+                                                           smote_type,
+                                                           neighbors)
     tmt_data, tmt_label = data_for_prediction(df)
     # best params
     best_params = hyperparameter_tuning(x_train, y_train, 'Naive Bayes')
@@ -401,10 +403,10 @@ def naive_bayes_classifier(df, train_size, accuracy_threshold,
     gnb = GaussianNB(var_smoothing=best_params['var_smoothing'])
     gnb.fit(x_train, y_train)
     pred = gnb.predict(x_test)
-    accuracy = report(y_test, pred, 'Naive_Bayes', marker_dic)
+    accuracy = report(y_test, pred, 'Naive_Bayes')
     # predict classification for whole dataset
     ndf = prediction_on_data(gnb, tmt_data, tmt_label,
-                             'Naive.Bayes', marker_dic)
+                             'Naive.Bayes')
     # ---
     if accuracy < accuracy_threshold:
         _ = predef_message('Naive Bayes',
@@ -520,14 +522,19 @@ def common_prediction(df, cols, hdbscan=False, cutoff=''):
     return df
 
 
-def supervised_clustering(odf, markers_file, train_size, accuracy_threshold,
-                          smote_type, neighbors):
-    if markers_file != '':
-        markers_df = marker_checkup(markers_file)
-        df = changing_preexisting_colnames(odf, markers_df)
+def handling_markers(odf, markers_checked):
+    if isinstance(pd.DataFrame, markers_checked):
+        df = changing_preexisting_colnames(odf, markers_checked)
     else:
-        markers_df = pd.DataFrame()
         df = odf
+    return df
+
+
+def supervised_clustering(directory, df, markers_df, train_size,
+                          accuracy_threshold, smote_type, neighbors, outname):
+    # create and move into new directory
+    os.mkdir(directory)
+    os.chdir(directory)
     # sml classification
     svm_df = svm_classification(df, train_size, accuracy_threshold, smote_type,
                                 neighbors)
@@ -542,20 +549,16 @@ def supervised_clustering(odf, markers_file, train_size, accuracy_threshold,
                                                      on='Accession',
                                                      how='outer'),
                         [svm_df, knn_df, randomf_df, nb_df])
-    return reconst_df, markers_df
+    _ = wrapping_up(df, reconst_df, markers_df, outname)
+    return 'Done'
 
 
-def write_df(dfs_list, outname, hdbscan, cutoff):
+def write_mydf(dfs_list, outname, hdbscan, cutoff):
     df = reduce(lambda left, right: pd.merge(left, right,
                                              on='Accession',
                                              how='left'), dfs_list)
     fill_cols = ['SVM.prediction', 'KNN.prediction',
                  'Random.forest.prediction', 'Naive.Bayes']
-    if hdbscan is True and cutoff == '':
-        markers = df[df.marker != 'unknown']
-        markers_dic = dict(zip(markers.Accession, markers.marker))
-        for col in fill_cols:
-            df[col] = df[col].fillna(df['Accession'].map(markers_dic))
 
     # compute shared predictions and prepare final df
     final_df = common_prediction(df, fill_cols, hdbscan, cutoff)
@@ -596,13 +599,96 @@ def marker_checkup(entry):
             m = ('***   WARNING   ***\n'
                  f'There is/are not enough markers for a good prediction:\n{l}\n'
                  'At least 6 markers by compartment should be declared.\n'
-                 'Program will continue but predictions may be highly '
-                 'inaccurate.\n*** end of WARNING   ***')
+                 'This program will continue if there are at least 3 markers \n'
+                 'per compartment but predictions may be highly '
+                 'inaccurate if data is largely unbalanced.\n'
+                 '*** end of WARNING   ***')
             print(m)
+            if len(l) < 3:
+                m = 'Program exiting due to lack of markers\n'
+                print(m)
         return markers_map
     else:
         print('Declared marker file does NOT exist. Exiting program...')
         sys.exit(-1)
+
+
+def wrapping_up(master_df, fdf, marker_df, outname):
+    # writing sml predictions with previous sml prediction
+    if not marker_df.empty:
+        if 'marker' in master_df.columns.to_list():
+            if master_df['marker'].equals(marker_df['marker']):
+                del master_df['marker']
+            else:
+                master_df.rename(columns={'marker': 'marker_old'},
+                                 inplace=True)
+        intersect_cols = set(fdf.columns.to_list()).intersection(
+            set(master_df.columns.to_list()))
+        if intersect_cols:
+            master_df.rename(columns={col: f'{col}_old' for col in
+                                      fdf.columns.to_list()
+                                      if col != 'Accession'},
+                             inplace=True)
+        ffdf = write_mydf([master_df, fdf, marker_df],
+                        outname, True, '')
+    # writing di novo sml prediction without any previous sml prediction
+    else:
+        ffdf = write_mydf([master_df, fdf], outname,
+                        True, '')
+
+    # return to main directory
+    os.chdir('..')
+    return 'Done'
+
+
+def traverse(infile, fileout, f_identificator, markers_file):
+    markers_df = marker_checkup(markers_file)
+    # create a new dir to host the predicition outputs
+    cwd = os.getcwd()
+    newdir = os.path.join(cwd, f'Step6__SML_predictions_{fileout}')
+    if not os.path.isdir(newdir):
+        os.makedirs(newdir)
+    else:
+        print('Directory exists')
+    #  check up files as df and pre-treatment
+    newdir = os.path.abspath(newdir)
+    os.chdir(newdir)
+    available_dirs = [f.path for f in os.scandir(infile) if f.is_dir()]
+    target_files = {}
+    missing_target_files = []
+    for f in available_dirs:
+        dir_name = os.path.split(f)[-1]
+        os.chdir(f)
+        tf = glob.glob(f_identificator)[0]
+        if os.path.isfile(tf):
+            infile = os.path.abspath(tf)
+            dfin = pd.read_csv(infile, sep='\t', header=0)
+            npath = os.path.join(newdir, dir_name)
+            target_files[npath] = changing_preexisting_colnames(dfin,
+                                                                markers_df)
+        else:
+            missing_target_files.append(f)
+        os.chdir('..')
+    # stop program if at least one file is missing for the declared input dir
+    if missing_target_files:
+        m = f'File(s) is/are missing from: {missing_target_files}'
+        m += 'exiting program'
+        print(m)
+        sys.exit(-1)
+    return target_files, markers_df
+
+
+def parallel_prediction(dic_with_dfs, balance_method, markers_df):
+    #  clustering each dataset in parallel   #
+    _ = Parallel(n_jobs=-1)(delayed(supervised_clustering)
+                                   (directory, dic_with_dfs[directory],
+                                    markers_df,
+                                    train_size=0.33,
+                                    accuracy_threshold=0.90,
+                                    smote_type=balance_method,
+                                    neighbors=2, outname='SML')
+                            for directory in dic_with_dfs.keys())
+    return
 
 
 #  ---   execute   ---   #
@@ -610,24 +696,19 @@ def marker_checkup(entry):
 
 if __name__ == '__main__':
     #f = "df_PLNPLOPL2PL1.test.tsv"
-    f = "D:\PycharmProjects\LOPIT\Formatted_input_data_240624\PLNPLOPL2PL1_240624.tagm_added.tsv"
+    f = "Final_df_PLNPLOPL2PL1_SML.AccessoryInfo.tsv"
     master_df = pd.read_csv(f, sep='\t', header=0)
-    # marker_file = "D:\PycharmProjects\LOPIT\Marker_curation\Pmar_369markers.19354.20062024.tsv"
-    marker_file = "D:\PycharmProjects\LOPIT\Marker_curation\Pmar_369markers.19354.20062024.tsv"
+    marker_file = "Pmar_369markers.19354.20062024.tsv"
     mf = pd.read_csv(marker_file, sep='\t', header=0)
 
-    fdf, marker_df = supervised_clustering(master_df,
-                                           marker_file,
-                                           train_size=0.33,
-                                           accuracy_threshold=0.90,
-                                           smote_type='smote',
-                                           neighbors=2)
-    # writing sml predictions with previous sml prediction
-    if not marker_df.empty:
-        ffdf = write_df([master_df, fdf, marker_df],
-                        'newdataset', True, '')
-    # writing di novo sml prediction without any previous sml prediction
-    else:
-        ffdf = write_df([master_df, fdf], 'newdataset',
-                        True, '')
-
+    # fdf, marker_df = supervised_clustering('directory', master_df,
+    #                                        marker_file,
+    #                                        train_size=0.33,
+    #                                        accuracy_threshold=0.90,
+    #                                        smote_type='borderline',
+    #                                        neighbors=2, outname='new')
+    # # writing sml predictions with previous sml prediction
+    # _ = wrapping_up(master_df, fdf, marker_df, 'newdataset')
+    # dfs_dic = traverse(infile, fileout, f_identificator)
+    # results = parallel_prediction(dfs_dic, 'borderline',
+    #                               marker_file, 'new')
