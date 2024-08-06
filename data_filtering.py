@@ -46,8 +46,7 @@ def df_reduction(odf, exclude, sn_value):
         # isolation interference > 50 %
         (df['SPS.Mass.Matches.in.Percent'] >= 50) &  # remove PSMs with fewer
         # than half SPS precursors matched
-        (df['Ion.Inject.Time.in.ms'] <= 50) &  # keep PSMs with inject time ***********************************
-        # below 50
+        (df['Ion.Inject.Time.in.ms'] <= 50) &  # keep PSMs with inject time < 50
         (df['Average.Reporter.SN'] >= sn_value) &  # remove PSMs with low S/N
         (df['Quan.Info'] != 'NoQuanLabels')  # remove entries == "NoQuanLabels"
         )
@@ -80,12 +79,28 @@ def summary_stats(df, col, bname, m):
     return u
 
 
-def missing_values_calculation(df):
+def remove_cols_mval(df, threshold):
+    ls = []
+    for col in df.columns.to_list():
+        size = len(df[col])
+        nans = len([i for i in df[col] if np.isnan(i)])
+        if nans / size >= threshold:
+            ls.append(col)
+    if ls:
+        df.drop(ls, inplace=True, axis=1)
+    return df
+
+
+def missing_values_calculation(df, col_rm_value):
     dfs = []
     for experiment, subdf in df.groupby('Experiment'):
         subdf.dropna(axis=1, how='all', inplace=True)
         sdf_cols = list(subdf.filter(regex=r'^TMT.*\d+').columns)
-        dfs.append(lopit_utils.nan(subdf, sdf_cols))
+        s = lopit_utils.nan(subdf, sdf_cols)
+        if col_rm_value is not None:
+            # remove columns with the specified mv threshold
+            s = remove_cols_mval(s, col_rm_value)
+        dfs.append(s)
 
     # writing first level filtered dfs by experiment
     for subdf in dfs:
@@ -111,7 +126,8 @@ def does_exclude_exists(df, exclude):
         sys.exit(-1)
 
 
-def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
+def run_data_filter(arg1, density, fileout, outname, exclude, sn_value,
+                    col_rm_value):
     print('\n*** - Beginning of data filtering workflow - ***\n')
     directory = lopit_utils.create_dir('Step2_',
                                        f'First_filter_{outname}')
@@ -122,6 +138,14 @@ def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
         fileout = ast.literal_eval(fileout)
     if isinstance(density, str):
         density = ast.literal_eval(density)
+    if col_rm_value is not None:
+        me = ('Error: --remove-columns must be a float between 0 and 1\n'
+              'Exiting program')
+        if col_rm_value is not isinstance(col_rm_value, float):
+            print(me)
+        if col_rm_value > 1 or col_rm_value < 0:
+            print(me)
+        sys.exit(-1)
     if isinstance(arg1, pd.DataFrame):
         pre_parsed_psm = arg1
     else:
@@ -159,7 +183,7 @@ def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
     # *-*-* garbage collection *-*-* #
     collected = gc.collect()
     print(f'{collected} garbage objects were collected')
-    processed_df = missing_values_calculation(filt_df)
+    processed_df = missing_values_calculation(filt_df, col_rm_value)
     os.chdir('..')
     print('*** - Filtering  workflow has finished -***\n')
     return processed_df
@@ -175,6 +199,6 @@ write file out: False
 outname: name to write out
 '''
 if __name__ == '__main__':
-
-    _ = run_data_filter(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+    # _ = run_data_filter(sys.argv[1], sys.argv[2], sys.argv[3],
+    #                     sys.argv[4], sys.argv[5])
     print('Program has finished')

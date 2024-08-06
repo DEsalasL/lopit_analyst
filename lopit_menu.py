@@ -86,7 +86,8 @@ unwrapped = {
            'these will be collected by glob.glob  e.g. if files names are\n: '
            'df_for_clustering_1.tsv, df_for_clustering_2.tsv, '
            'df_for_clustering_3.tsv, then the correct input declaration will '
-           'be: path\\to\\df_for_clustering',
+           'be: path\\to\\df_for_clustering. If sml, then path must point '
+           'to the corresponding directory Step5__Clustering_',
     'm17': 'path to file containing markers linked to Accessions',
     'm18': 'path to file containing annotations, additional information '
            'linked to Accessions or tagm predictions',
@@ -106,7 +107,10 @@ unwrapped = {
     'm27': 'signal/noise ratio threshold for filtering (integer). Default=10',
     'm28': 'balancing method, choose either borderline, over_under, '
             'smote or unbalanced',
-    'm29': 'motif for file recognition, e.g., Final_df*'}
+    'm29': 'motif for file recognition, e.g., Final_df*',
+    'm30': 'minimum threshold (0 - 1) to remove channels with missing values '
+           '(mv).\ne.g., 0.5 will remove all channels containing more than 50% '
+           'missing values, but will keep the channels if mv = 50% or below'}
 
 other_ms = {k: '\n'.join(wrap(unwrapped[k])) for k in unwrapped.keys()}
 
@@ -143,7 +147,8 @@ dic_1 = {'-i': ['--input', str, psm_ms['m1'], True],
 #   2 - filtering:
 dic_2.update({'-e': ['--exclude_taxon', str, other_ms['m25'], False],
               '-sn': ['--signal_noise_threshold', int, other_ms['m27'],
-                      False, 10]})
+                      False, 10],
+              '-rm': ['--remove-columns', float, other_ms['m30'], False]})
 
 #   4- mv imputation and aggregation:
 dic_4 = {'-i': ['--input', str,  psm_ms['m4'], True],
@@ -183,7 +188,8 @@ dic_7 = {'-i': ['--input', str, other_ms['m16'], True],
          '-o': ['--out_name', str, 'output prefix', True],
          '-m': ['--markers_file', str, other_ms['m10a'], True],
          '-r': ['--recognition_motif', str, other_ms['m29'], True],
-         '-b': ['--balancing_method', str, other_ms['m28'], True]}
+         '-b': ['--balancing_method', str, other_ms['m28'], True],
+         '-a': ['--additional-file', str, other_ms['m10b'], False]}
 
 #   --- subparsers  ---   #
 

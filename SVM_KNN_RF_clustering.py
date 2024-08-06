@@ -447,6 +447,10 @@ def changing_preexisting_colnames(df, markers_info):
                 return merged_df
             else:
                 return df
+        if 'marker' not in cols:
+            merged_df = pd.merge(df, markers_info, on='Accession',
+                                 how='left')
+            return merged_df
 
 
 def common_prediction(df, cols, hdbscan=False, cutoff=''):
@@ -531,9 +535,14 @@ def handling_markers(odf, markers_checked):
 
 
 def supervised_clustering(directory, df, markers_df, train_size,
-                          accuracy_threshold, smote_type, neighbors, outname):
+                          accuracy_threshold, smote_type, neighbors,
+                          outname, accessory_file):
     # create and move into new directory
-    os.mkdir(directory)
+    try:
+        os.mkdir(directory)
+    except:
+        print('Directory already exists')
+        pass
     os.chdir(directory)
     # sml classification
     svm_df = svm_classification(df, train_size, accuracy_threshold, smote_type,
@@ -549,11 +558,12 @@ def supervised_clustering(directory, df, markers_df, train_size,
                                                      on='Accession',
                                                      how='outer'),
                         [svm_df, knn_df, randomf_df, nb_df])
-    _ = wrapping_up(df, reconst_df, markers_df, outname)
+
+    _ = wrapping_up(df, reconst_df, markers_df, outname, accessory_file)
     return 'Done'
 
 
-def write_mydf(dfs_list, outname, hdbscan, cutoff):
+def write_mydf(dfs_list, outname, hdbscan, cutoff, accessory_file):
     df = reduce(lambda left, right: pd.merge(left, right,
                                              on='Accession',
                                              how='left'), dfs_list)
@@ -561,7 +571,26 @@ def write_mydf(dfs_list, outname, hdbscan, cutoff):
                  'Random.forest.prediction', 'Naive.Bayes']
 
     # compute shared predictions and prepare final df
-    final_df = common_prediction(df, fill_cols, hdbscan, cutoff)
+    pre_final_df = common_prediction(df, fill_cols, hdbscan, cutoff)
+    # merge accessory file if passed
+    if isinstance(accessory_file, pd.DataFrame):
+        acc_cols = [col for col in accessory_file.columns.to_list()
+                    if col != 'Accession']
+        shared_cols = [col for col in pre_final_df.columns.to_list()
+                       if col in acc_cols]
+        if len(shared_cols) != 0:
+            print(f'Merge will avoid shared columns {shared_cols} between '
+                  'master_df and accessory file.\n')
+            merge_cols = ['Accession'] + [col for col in acc_cols if
+                                          col not in shared_cols]
+            final_df = pd.merge(pre_final_df,
+                                accessory_file.loc[:, merge_cols],
+                                on='Accession', how='left')
+        else:
+            final_df = pd.merge(pre_final_df, accessory_file,
+                                on='Accession', how='left')
+    else:
+        final_df = pre_final_df
 
     # write final df
     dataset = final_df['Dataset'].to_list()[0]
@@ -604,8 +633,9 @@ def marker_checkup(entry):
                  'inaccurate if data is largely unbalanced.\n'
                  '*** end of WARNING   ***')
             print(m)
-            if len(l) < 3:
-                m = 'Program exiting due to lack of markers\n'
+
+            if [l[i] for i in l.keys() if l[i] < 3]:  # if the list is not empty
+                m = f'Program exiting due to lack of markers:\n{l}'
                 print(m)
         return markers_map
     else:
@@ -613,7 +643,7 @@ def marker_checkup(entry):
         sys.exit(-1)
 
 
-def wrapping_up(master_df, fdf, marker_df, outname):
+def wrapping_up(master_df, fdf, marker_df, outname, accessory_file):
     # writing sml predictions with previous sml prediction
     if not marker_df.empty:
         if 'marker' in master_df.columns.to_list():
@@ -629,12 +659,13 @@ def wrapping_up(master_df, fdf, marker_df, outname):
                                       fdf.columns.to_list()
                                       if col != 'Accession'},
                              inplace=True)
+
         ffdf = write_mydf([master_df, fdf, marker_df],
-                        outname, True, '')
+                          outname, True, '', accessory_file)
     # writing di novo sml prediction without any previous sml prediction
     else:
         ffdf = write_mydf([master_df, fdf], outname,
-                        True, '')
+                        True, '', accessory_file)
 
     # return to main directory
     os.chdir('..')
@@ -658,8 +689,18 @@ def traverse(infile, fileout, f_identificator, markers_file):
     missing_target_files = []
     for f in available_dirs:
         dir_name = os.path.split(f)[-1]
-        os.chdir(f)
-        tf = glob.glob(f_identificator)[0]
+        fpath = os.path.join(os.path.abspath(infile), f)
+        fpath = os.path.join(fpath, f_identificator)
+        tfiles = glob.glob(fpath)
+        if len(tfiles) == 1:
+            tf = tfiles[0]
+        else:
+            m = (f'There are no files or there are multiple target files: '
+                 f'{tfiles}.\n'
+                 f'The recognition_motif must be unambiguous.\n')
+            print(m)
+            sys.exit(-1)
+        # os.chdir(f)
         if os.path.isfile(tf):
             infile = os.path.abspath(tf)
             dfin = pd.read_csv(infile, sep='\t', header=0)
@@ -668,7 +709,7 @@ def traverse(infile, fileout, f_identificator, markers_file):
                                                                 markers_df)
         else:
             missing_target_files.append(f)
-        os.chdir('..')
+        # os.chdir('..')
     # stop program if at least one file is missing for the declared input dir
     if missing_target_files:
         m = f'File(s) is/are missing from: {missing_target_files}'
@@ -678,7 +719,13 @@ def traverse(infile, fileout, f_identificator, markers_file):
     return target_files, markers_df
 
 
-def parallel_prediction(dic_with_dfs, balance_method, markers_df):
+def parallel_prediction(dic_with_dfs, balance_method, markers_df,
+                        afile):
+    if afile is not None and os.path.isfile(afile):
+        acc_file = pd.read_csv(afile, sep='\t', header=0)
+    else:
+        acc_file = None
+
     #  clustering each dataset in parallel   #
     _ = Parallel(n_jobs=-1)(delayed(supervised_clustering)
                                    (directory, dic_with_dfs[directory],
@@ -686,7 +733,8 @@ def parallel_prediction(dic_with_dfs, balance_method, markers_df):
                                     train_size=0.33,
                                     accuracy_threshold=0.90,
                                     smote_type=balance_method,
-                                    neighbors=2, outname='SML')
+                                    neighbors=2, outname='SML',
+                                    accessory_file=acc_file)
                             for directory in dic_with_dfs.keys())
     return
 

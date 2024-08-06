@@ -127,7 +127,8 @@ def filter_raw_data(args):  # workflow 2- subparser: filtering
                                             write_out,
                                             args['out_name'],
                                             args['exclude_taxon'],
-                                            args['signal_noise_threshold'])
+                                            args['signal_noise_threshold'],
+                                            args['remove_columns'])
     return first_filtered_df
 
 
@@ -150,7 +151,8 @@ def impute_and_aggregate(args):  # workflow 4- subparser: imputation-aggregation
                                             args['channels_mnar'],
                                             args['mar'],
                                             args['channels_mar'],
-                                            args['interlaced_reconstitution'])
+                                            args['interlaced_reconstitution']
+                                            )
     return imp_aggregated
 
 
@@ -176,9 +178,10 @@ def predict_compartments(args): # workflow 7 subparser sml
     dfs_dic, markers = sml.traverse(args['input'], args['out_name'],
                                     args['recognition_motif'],
                                     args['markers_file'])
+
     predictions = sml.parallel_prediction(dfs_dic,
                                           args['balancing_method'],
-                                          markers)
+                                          markers, args['additional_file'])
     return predictions
 
 

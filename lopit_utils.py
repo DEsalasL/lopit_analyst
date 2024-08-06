@@ -532,7 +532,7 @@ def df_merger(main_input, mf1, af2, outname):
                                            'tagm.map.allocation.cutoff_0.90']]
         final_df = write_mydf([main_df, extra_df_subset],
                             'tagm_added',
-                     False, '0.90')
+                     False, '0.90', '')
 
     # preparing output file
     dataset = list(set(final_df['Dataset'].to_list()))[0]

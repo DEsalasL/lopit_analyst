@@ -188,7 +188,11 @@ def charm_prep(df, out):
     df['SP_ranges'] = pd.cut(df['SP(Sec-SPI)'], bins=4,
                              labels=['0-0.25', '0.26-0.50',
                                      '0.51-0.75', '0,76-1.0'])
-    df['TP_ranges'] = pd.cut(df['targetp-SP'], bins=4,
+    df['TP-SP_ranges'] = pd.cut(df['targetp-SP'], bins=4,
+                             labels=['0-0.25', '0.26-0.50',
+                                     '0.51-0.75', '0,76-1.0'])
+    df['targetp_TP'] = 1 - df['Targetp-noTP']
+    df['TP_ranges'] = pd.cut(df['targetp_TP'], bins=4,
                              labels=['0-0.25', '0.26-0.50',
                                      '0.51-0.75', '0,76-1.0'])
     if 'gpi-anchored' in df.columns.to_list():

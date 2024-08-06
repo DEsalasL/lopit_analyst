@@ -476,7 +476,7 @@ def df_integration(df1, df2, dataset):
     ndf.to_csv(fpath, sep='\t', index=False)
     return ndf
 
-''
+
 def feature_projections(df, coord1, coord2, dataset, c_type, dic):
     cols = df.columns.to_list()
     updated_dic = {k: dic[k] for k in dic.keys() if dic[k][0] in cols}
