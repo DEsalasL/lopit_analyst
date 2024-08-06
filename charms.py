@@ -191,7 +191,7 @@ def charm_prep(df, out):
     df['TP-SP_ranges'] = pd.cut(df['targetp-SP'], bins=4,
                              labels=['0-0.25', '0.26-0.50',
                                      '0.51-0.75', '0,76-1.0'])
-    df['targetp_TP'] = 1 - df['Targetp-noTP']
+    df['targetp_TP'] = 1 - df['targetp-noTP']
     df['TP_ranges'] = pd.cut(df['targetp_TP'], bins=4,
                              labels=['0-0.25', '0.26-0.50',
                                      '0.51-0.75', '0,76-1.0'])
