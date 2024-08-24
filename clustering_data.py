@@ -144,13 +144,13 @@ def create_tsne_cuml(df, components, method, perplex):
     cdf = ndf.loc[:, cols]
     if method == 'barnes_hut':
         theta = 0.5
-        tsne = TSNE(n_components=components, random_state=1250,
+        tsne = TSNE(n_components=components, random_state=1155,
                     learning_rate=300, init='random', perplexity=perplex,
                     method=method, n_iter=5000, angle=theta,
                     exaggeration_iter=300,
                     n_neighbors=3*perplex, output_type='pandas')
     else:
-        tsne = TSNE(n_components=components, random_state=1250,
+        tsne = TSNE(n_components=components, random_state=1155,
                     learning_rate=300.0, init='random', perplexity=perplex,
                     method=method, n_iter=10000, exaggeration_iter=300,
                     n_neighbors=3*perplex, output_type='pandas')
