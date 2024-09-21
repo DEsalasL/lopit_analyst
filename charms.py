@@ -199,11 +199,20 @@ def charm_prep(df, out):
         df['gpi-anchored'] = df.loc[
             df['GPI-Anchored-pred'] == 'GPI-Anchored', 'gpi-Likelihood']
         df['gpi-anchored'].fillna(0, inplace=True)
+    if ('DeepTMHMM.predicted.TMs' and 'phobius-SP' and 'targetp-pred'
+            in df.columns.to_list()):
+        df['targetp-pred.corr'] = np.where((df['targetp-pred'] == 'noTP') &
+                                           (df['phobius-SP'] == 'Y'),
+                                           df['phobius-SP'], df['targetp-pred'])
+        ndf = guess_boundaries(df)
+        ndf.to_csv(f'{out}_formatted_protein_features.tsv', sep='\t',
+                   index=False)
+        return
+    else:
 
-    ndf = guess_boundaries(df)
-    ndf.to_csv(f'{out}_formatted_protein_features.tsv', sep='\t',
-               index=False)
-    return ndf
+        df.to_csv(f'{out}_formatted_protein_features.tsv', sep='\t',
+                   index=False)
+        return df
 
 
 def overlap(X1, Y1, X2, Y2):
@@ -222,19 +231,55 @@ def tm_guesser(x):
     cs = regex.split(x) if isinstance(x, str) else x
     if isinstance(cs, list):
         cs = [int(cs[1]), int(cs[2])]
+    elif isinstance(cs, tuple):
+        cs = [int(cs[0]), int(cs[1])]
     else:
         cs = [0, 0]
     return cs
 
 
+def tm_correction(x):
+    regex = re.compile(r'[\D+]')
+    s = regex.split(x) if isinstance(x, str) else x
+    if isinstance(x, str):
+        cs = [int(i) for i in s if i != '']
+        cs = [tuple(cs[i:i + 2]) for i in range(0, len(cs), 2)]
+        if len(cs) > 1:
+            cs = cs[1:]
+        else:
+            cs = 0
+    else:
+        cs = 0
+    return cs
+
+
 def guess_boundaries(df):
-    splicol = 'targetp-CS-Position'
-    df['Y1'] = df[splicol].apply(tp_guesser).fillna(0).astype(int)
+    #  sp info from targetp
+    df['Y1'] = df['targetp-CS-Position'].apply(tp_guesser).fillna(0).astype(int)
     df['X1'] = df['Y1'].apply(lambda x: 0 if x == 0 else 1)
-    tm = 'deeptmhmm-first-tm <= 80aa'
-    df['X2Y2'] = df[tm].apply(tm_guesser)
-    ndf = pd.DataFrame(df['X2Y2'].to_list(), columns=['X2', 'Y2'])
-    ddf = pd.merge(df, ndf, left_index=True, right_index=True, how='left')
+
+    # sp info from phobius
+    df['Z1W1'] = df['phobius-sp'].apply(tm_guesser)
+    zdf = pd.DataFrame(df['Z1W1'].to_list(), columns=['Z1', 'W1'])
+    xdf = pd.merge(df, zdf, left_index=True, right_index=True, how='left')
+
+    # update X1 and Y1 with Z1 and W1 respectively
+    xdf['X1'] = np.where((xdf['targetp-pred'] == 'noTP') &
+                         (xdf['phobius-SP'] == 'Y'),
+                         xdf['Z1'], xdf['X1'])
+    xdf['Y1'] = np.where((xdf['targetp-pred'] == 'noTP') &
+                         (xdf['phobius-SP'] == 'Y'),
+                         xdf['W1'], xdf['Y1'])
+
+    # correct missing sp/tp predictions from tp with phopius-sp info
+    xdf['targetp-pred.corr'] = np.where((xdf['targetp-pred'] == 'noTP') &
+                                        (xdf['phobius-SP'] == 'Y'),
+                                        'SP', xdf['targetp-pred'])
+
+    # tm info from deeptmhmm
+    xdf['X2Y2'] = xdf['deeptmhmm-first-tm <= 80aa'].apply(tm_guesser)
+    ndf = pd.DataFrame(xdf['X2Y2'].to_list(), columns=['X2', 'Y2'])
+    ddf = pd.merge(xdf, ndf, left_index=True, right_index=True, how='left')
 
     # check overlapping entries that are not 0
     condition = ((ddf['X1'] == 0) & (ddf['X2'] == 0) &
@@ -248,16 +293,21 @@ def guess_boundaries(df):
                       left_index=True, right_index=True,
                       how='left').fillna(0)
 
+    # remove n-terminal TM predictions that overlap with SP from TM list
+    rec_df['dummy_deepTMhelix'] = rec_df['deepTMhelix'].apply(tm_correction)
+    rec_df['deepTMhelix.corr'] = np.where(rec_df['overlap'] == 1,
+                                          rec_df['dummy_deepTMhelix'],
+                                          rec_df['deepTMhelix'])
+
     # remove n-terminal TM predictions that overlap with SP predictions
-    rec_df['corr_TM_domains'] = round((rec_df['DeepTMHMM.predicted.TMs'] -
-                                      rec_df['overlap']))
+    rec_df['DeepTMHMM.predicted.TMs.corr'] = round(
+        (rec_df['DeepTMHMM.predicted.TMs'] - rec_df['overlap']))
 
     # remove unnecessary columns
-    rec_df.drop(['X1', 'Y1', 'X2', 'Y2', 'X2Y2', 'overlap',
-                 'DeepTMHMM.predicted.TMs'], axis=1, inplace=True)
-    # rename
-    rec_df.rename(columns={'corr_TM_domains': 'DeepTMHMM.predicted.TMs'},
-                  inplace=True)
+    rec_df.drop(['X1', 'Y1', 'X2', 'Y2', 'X2Y2', 'Z1', 'W1', 'Z1W1',
+                 'overlap', 'dummy_deepTMhelix', 'deeptmhmm-first-tm <= 80aa'],
+                axis=1, inplace=True)
+
     return rec_df
 
 
