@@ -94,12 +94,13 @@ def p9hist(odf, col1, col2, outname, binwidth, intercept,
 
 def scatter_plot(odf, col1, col2, outname):
     # slicing df
-    df = odf.loc[:, [col1, col2]]
+    df = odf.loc[:, [col1, col2, 'Experiment']]
     # defining object
     obj = p9.ggplot(df, p9.aes(col1, col2)) + p9.geom_point(size=0.5)
     obj += p9.geom_abline(intercept=[-5, 0, 5], slope=0, linetype='dotted',
                           colour='red')
     obj += p9.labels.ggtitle(outname)
+    obj += p9.facet_wrap(facets='Experiment')
     return obj
 
 
