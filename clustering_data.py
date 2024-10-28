@@ -622,9 +622,11 @@ def psms_sums_by_protgroup(sdf):
     df = sdf.copy(deep=True)
     mycols = df.filter(regex='PSMs.per.Protein.Group').columns.to_list()
     df['Sum.PSMs.per.Protein.Group'] = df.loc[:, mycols].sum(axis=1)
-    df['quantiles'] = pd.qcut(df['Sum.PSMs.per.Protein.Group'],
+    df['quantiles'] = pd.qcut(df['Sum.PSMs.per.Protein.Group'
+                              ].rank(method='first'),
                               q=[0, .25, .5, .75, 0.99, 1],
-                              labels=[0, 0.25, 0.50, 0.75, 1])
+                              labels=[0, 0.25, 0.50, 0.75, 1],
+                              duplicates='drop')
     df['PSMs_by_prot_group'] = pd.cut(df['Sum.PSMs.per.Protein.Group'],
                                       bins=6)
     return df

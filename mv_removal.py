@@ -7,6 +7,7 @@ import pandas as pd
 import seaborn as sns
 import missingno as msno
 import patchworklib as pw
+from functools import reduce
 import matplotlib.pyplot as plt
 
 
@@ -133,20 +134,36 @@ def absval(val, summ):
     return f'{val:.2f}%\n{round(a)}'
 
 
+def pie_cols(df, new_col, title):
+    c = []
+    for i, group in df.groupby('Experiment', as_index=False):
+        group['title'] = title
+        group['exp-title'] = group['Experiment'] + '-' + title
+        group['pie_value'] = group[f'{new_col}s']
+        if new_col == 'Has.MV':
+            group['status'] = ['No MVs', 'MVs']
+        else:
+            group['status'] = ['# PSMs per prot group > 1',
+                               '# PSMs per prot group = 1']
+        c.append(group)
+    return pd.concat(c)
+
+
 def subplots(df, new_col,  title, outname, suffix):
     all_plots = {}
     for i, group in df.groupby('Experiment', as_index=False):
         if new_col == 'Has.MV':
-            group['status'] = ['No missing values', 'Missing values']
+            group['status'] = ['No MVs', 'MV']
         else:
-            group['status'] = ['No. of PSMs per protein group > 1',
-                               'No. of PSMs per protein group = 1']
+            group['status'] = ['No. PSMs per prot group > 1',
+                               'No. PSMs per prot group = 1']
 
         # patch due to pandas version 1.5.3 -> problem with lambda and autopct
         # group.set_index('status', inplace=True)
         sizes = group[f'{new_col}s'].to_list()
-        ax0 = pw.Brick(figsize=(11, 6))
-        plt.pie(sizes, labels=group['status'].to_list(), startangle=90,
+        labels = group['status'].to_list()
+
+        plt.pie(sizes, labels=labels, startangle=90,
                 colors=['#BDE5FD', '#8457FD'], autopct='%1.1f%%')
         # end of patch
         # original code eliminated due to patch:
@@ -157,12 +174,14 @@ def subplots(df, new_col,  title, outname, suffix):
         #              explode=[0.05]*2, colors=['#BDE5FD', '#8457FD'],
         #              ax=ax0)
         # end ----   #
+        ax0 = pw.Brick(figsize=(9, 4))
         ax0.set_ylabel('')
         ax0.set_title(f'{title} - {outname} MV pie-{i} {suffix}')
         if i not in all_plots.keys():
             all_plots[i] = [ax0]
         else:
             all_plots[i].append(ax0)
+
     key_order = sorted(all_plots)
     return key_order, all_plots
 
@@ -190,49 +209,66 @@ def daframe_formatting(odf, gcol, cond_col, ncol):
 def magic_pies(df, gcol, cond_col, new_col, title, outname, suffix):
     print('entering magic pies')
     ndf = daframe_formatting(df, gcol, cond_col, new_col)
-    key_order, figs_dic = subplots(ndf, new_col, title, outname, suffix)
-    return key_order, figs_dic
+    nndf = pie_cols(ndf, new_col, title)
+    return nndf
 
 
-def pie_baker(ordered_keys, max_pies, min_pies, new_minpies, psms_pies, suffix):
-    zipped_pies = {}
-    for g in ordered_keys:
-        zipped_pies[g] = [(max_pies[g] + min_pies[g] +
-                           new_minpies[g] + psms_pies[g],
-                           f'Pies_of_missing_values-{g}-{suffix}')]
-    all_paths = []
-    for k in zipped_pies.keys():
-        all_paths.extend(lopit_utils.compare_loop(zipped_pies[k]))
-    _ = lopit_utils.merge_pdfs(all_paths,
+def pie_baker(df, suffix):
+    fig_paths = []
+    for i, sdf in df.groupby('Experiment', as_index=False):
+        g = sns.FacetGrid(sdf, col='title', legend_out=False)
+        g.map(my_pie, 'pie_value', 'status', autopct='%1.1f%%', )
+        for ax in g.axes.flatten():
+            ax.set_ylabel('')
+            ax.set_xlabel(i)
+        for ax in g.axes.flat:
+            col_name = ax.get_title().split(' = ')[-1]  # Extract the column name
+            ax.set_title(col_name,
+                         fontdict={'fontsize': 9})  # Set the custom title
+        outpath = os.path.join(os.getcwd(), f'pie_{i}.pdf')
+        plt.savefig(outpath, dpi=300)
+        fig_paths.append(outpath)
+    _ = lopit_utils.merge_pdfs(fig_paths,
                                f'Comparative_pie_charts_'
                                f'of_missing_values-{suffix}.pdf')
-    return 'done'
+    return 'Done'
+
+
+def my_pie(n, kind, **kwargs):
+    wedges, texts, autotexts= plt.pie(x=n, labels=kind, startangle=90,
+                   colors=['#BDE5FD', '#8457FD'], autopct='%1.1f%%',
+                                      textprops={'fontsize': 8})
+    return plt.setp(autotexts, size=10)
+
 
 
 def pie_maker(odf, suffix):
     df = odf.copy(deep=True)
     df.set_index('PSMs.Peptide.ID', inplace=True)
     print('Making pies')
-    title = 'Fraction of protein groups containing missing values'
-    sk, max_pies = magic_pies(df, ['Experiment', 'Master.Protein.Accessions'],
-                              'Max.NA.per.Protein.Group',
-                              'Has.MV', title, 'Max', suffix)
-    title = 'Fraction of protein groups with all PSMs containing missing values'
-    sk, min_pies = magic_pies(df, ['Experiment', 'Master.Protein.Accessions'],
-                              'Min.NA.per.Protein.Group',
-                              'Has.MV', title, 'Min', suffix)
+    title = 'Prot groups containing MVs'
+    max_pies = magic_pies(df, ['Experiment', 'Master.Protein.Accessions'],
+                          'Max.NA.per.Protein.Group',
+                          'Has.MV', title, 'Max', suffix)
+
+    title = 'Prot groups with all PSMs with MVs'
+    min_pies = magic_pies(df, ['Experiment', 'Master.Protein.Accessions'],
+                          'Min.NA.per.Protein.Group',
+                          'Has.MV', title, 'Min', suffix)
     _ = psm_with_mv(df)
-    title = 'Fraction of protein groups identified with a single PSM'
-    sk, nmin_pie = magic_pies(df, ['Experiment', 'Master.Protein.Accessions'],
-                              'Number.of.PSMs.per.Protein.Group',
-                              'Has.single.PSM', title,
-                              'NewMin', suffix)
+    title = 'Prot groups identified with a single PSM'
+    nmin_pie = magic_pies(df, ['Experiment', 'Master.Protein.Accessions'],
+                          'Number.of.PSMs.per.Protein.Group',
+                          'Has.single.PSM', title,
+                          'NewMin', suffix)
     fil_df = df[df['Number.of.PSMs.per.Protein.Group'] == 1]
-    title = 'Missing values in single-PSM protein groups'
-    sk, psm = magic_pies(fil_df, ['Experiment', 'Master.Protein.Accessions'],
-                         'Number.of.Missing.Values',
-                         'Has.MV', title, 'PSM', suffix)
-    _ = pie_baker(sk, max_pies, min_pies, nmin_pie, psm, suffix)
+    title = 'MVs in single-PSM prot groups'
+    psm = magic_pies(fil_df, ['Experiment', 'Master.Protein.Accessions'],
+                     'Number.of.Missing.Values',
+                     'Has.MV', title, 'PSM', suffix)
+    cat = pd.concat([max_pies, min_pies, nmin_pie, psm], axis=0)
+    # cat.to_csv('Info_for_pies.tsv', sep='\t', index=False)
+    _ = pie_baker(cat, suffix)
     return 'Pies are ready'
 
 
@@ -326,7 +362,7 @@ def run_heatmap_explorer(file_in, outname):
     os.chdir(directory)
     #  drawing heat maps, barplots, scatterplots, pies, etc for missing values
     print('Preparing first batch of figures ...')
-    _ = misva_bulk_figures(newdf1, 'pre')  # use renamed df '''
+    _ = misva_bulk_figures(newdf1, 'pre')  # use renamed df
     _ = pie_maker(newdf, 'pre')  # use original deep copy
 
     #   ---   df sizes before missing data removal  ---   #
@@ -340,7 +376,7 @@ def run_heatmap_explorer(file_in, outname):
 
     #  dataframe to be used for mv imputation in future steps
     rdf.to_csv(f'{filepath}.tsv', sep='\t', index=False)
-    sys.exit(-1)
+
     #   ---  Checking left missing values  ---   #
     ndf = rdf.copy(deep=True)
     newrdf = ndf.loc[:, tmt + selcol].rename(columns={selcol[1]: 'Ave.SN'})
