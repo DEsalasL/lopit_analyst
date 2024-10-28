@@ -601,7 +601,7 @@ def write_mydf(dfs_list, outname, hdbscan, cutoff, accessory_file):
     return final_df
 
 
-def marker_checkup(entry):
+def marker_checkup(entry, balancing_method):
     if entry is not None and os.path.isfile(entry):
         markers_map = pd.read_csv(entry, sep='\t', header=0)
         cnames = markers_map.columns.to_list()
@@ -623,7 +623,7 @@ def marker_checkup(entry):
                                key=lambda x: x[1], reverse=False)
         # major warning for the marker sizes
         d = {tup[0]: tup[1] for tup in marker_labels}
-        l = {tup: d[tup] for tup in d.keys() if d[tup] < 6}
+        l = {tup: d[tup] for tup in d.keys() if d[tup] < 6 if tup != 'unknown'}
         if l:
             m = ('***   WARNING   ***\n'
                  f'There is/are not enough markers for a good prediction:\n{l}\n'
@@ -637,6 +637,22 @@ def marker_checkup(entry):
             if [l[i] for i in l.keys() if l[i] < 3]:  # if the list is not empty
                 m = f'Program exiting due to lack of markers:\n{l}'
                 print(m)
+        else:
+            msize = {tup: d[tup] for tup in d.keys() if d[tup] > 50
+                     if tup != 'unknown'}
+            if balancing_method != 'unbalanced' and len(msize) > 0:
+                m = ('***   WARNING   ***\n'
+                     f'There are more than 50 many markers at least in one '
+                     f'class/comparment\n{msize}\n\n'
+                     f'Note: \n'
+                     '1) The unbalanced method might be very inaccurate\n'
+                     '2) Specify the unbalanced method for classification\n'
+                     'Exiting program...\n'
+                     '*** end of WARNING   ***')
+                print(m)
+                sys.exit(-1)
+            else:
+                print('Markers were checked and program will continue')
         return markers_map
     else:
         print('Declared marker file does NOT exist. Exiting program...')
@@ -672,8 +688,8 @@ def wrapping_up(master_df, fdf, marker_df, outname, accessory_file):
     return 'Done'
 
 
-def traverse(infile, fileout, f_identificator, markers_file):
-    markers_df = marker_checkup(markers_file)
+def traverse(infile, fileout, f_identificator, markers_file, balance_method):
+    markers_df = marker_checkup(markers_file, balance_method)
     # create a new dir to host the predicition outputs
     cwd = os.getcwd()
     newdir = os.path.join(cwd, f'Step6__SML_predictions_{fileout}')
@@ -685,18 +701,21 @@ def traverse(infile, fileout, f_identificator, markers_file):
     newdir = os.path.abspath(newdir)
     os.chdir(newdir)
     available_dirs = [f.path for f in os.scandir(infile) if f.is_dir()]
+    print('available dirs', available_dirs)
     target_files = {}
     missing_target_files = []
     for f in available_dirs:
         dir_name = os.path.split(f)[-1]
+        print('working on', dir_name)
         fpath = os.path.join(os.path.abspath(infile), f)
         fpath = os.path.join(fpath, f_identificator)
-        tfiles = glob.glob(fpath)
+        tfiles = glob.glob(f'{fpath}*.tsv')
+
         if len(tfiles) == 1:
             tf = tfiles[0]
         else:
             m = (f'There are no files or there are multiple target files: '
-                 f'{tfiles}.\n'
+                 f'directory: {dir_name}, target {tfiles}.\n'
                  f'The recognition_motif must be unambiguous.\n')
             print(m)
             sys.exit(-1)

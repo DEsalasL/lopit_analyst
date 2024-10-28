@@ -175,9 +175,11 @@ def cluster_data(args):  # workflow 5- subparser: clustering
 
 
 def predict_compartments(args): # workflow 7 subparser sml
-    dfs_dic, markers = sml.traverse(args['input'], args['out_name'],
+    dfs_dic, markers = sml.traverse(args['input'],
+                                    args['out_name'],
                                     args['recognition_motif'],
-                                    args['markers_file'])
+                                    args['markers_file'],
+                                    args['balancing_method'])
 
     predictions = sml.parallel_prediction(dfs_dic,
                                           args['balancing_method'],

@@ -260,6 +260,7 @@ def trend(pvt, phenodata, tag_col, missing_cols):
     gc.collect()
     grouped = mod_pvt.groupby(['Tag', 'Experiment']).sum()
     grouped.rename(columns={'Abundance': 'Total.Abundance'}, inplace=True)
+    grouped.reset_index(inplace=True)
     merged = pd.merge(phenodata, grouped, on=['Tag', 'Experiment'],
                       how='inner')
     # faceted trend plot in a single file
