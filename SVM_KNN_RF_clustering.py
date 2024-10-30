@@ -276,6 +276,7 @@ def format_report(classificatior_report):
     cr = class_report.split('\n')[2:-1]
     compartments = [line.split(' ') for line in cr
                     if not line.startswith('\n')]
+
     dic = {}
     for lista in compartments:
         values = [value for value in lista if value != '']
@@ -284,6 +285,7 @@ def format_report(classificatior_report):
                 dic[values[0]] = values[1:]
             else:
                 dic[values[0]] = [' ', ' '] + values[1:]
+
     acc_df = pd.DataFrame.from_dict(dic, orient='index',
                                     columns=['precision', 'recall',
                                              'f1-score', 'support'])
@@ -455,17 +457,25 @@ def changing_preexisting_colnames(df, markers_info):
 
 def common_prediction(df, cols, hdbscan=False, cutoff=''):
     ndf = df.copy(deep=True)
-    if hdbscan is True:
-        if 'hdb_labels_euclidean_TMT_pred_marker' in ndf.columns.to_list():
-            cols = cols + ['hdb_labels_euclidean_TMT_pred_marker']
+    all_cols = ndf.columns.to_list()
 
+    if hdbscan is True:
+        if 'hdb_labels_euclidean_TMT_pred_marker' in all_cols:
+            cols = cols + ['hdb_labels_euclidean_TMT_pred_marker']
         if 'hdb_labels_euclidean_TMT_pred_marker' in cols:
             ml, size, sign = 'hdbscan', 5, '+hdbscan'
         else:
             ml, size, sign = '', 4, '+'
     else:
-        ml, size, sign = 'tagmap', 5, '+tagmap'
-        cols = cols + [f'tagm.map.allocation.cutoff_{cutoff}']
+        # check if tagm predictions are available
+        tagm = list(set([x.split('.')[0] for x in all_cols if
+                         x.split('.')[0].startswith('tagm')]))
+        if tagm:
+            ml, size, sign = 'tagmap', 5, '+tagmap'
+            cols = cols + [f'tagm.map.allocation.cutoff_{cutoff}']
+        # calculate without hdbscan or tagm predictions
+        else:
+            ml, size, sign = '', 4, '+'
 
     ndf.set_index('Accession', inplace=True)
     wdf = ndf.loc[:, cols]
@@ -534,7 +544,7 @@ def handling_markers(odf, markers_checked):
     return df
 
 
-def supervised_clustering(directory, df, markers_df, train_size,
+def supervised_clustering(directory, odf, markers_df, train_size,
                           accuracy_threshold, smote_type, neighbors,
                           outname, accessory_file):
     # create and move into new directory
@@ -545,6 +555,9 @@ def supervised_clustering(directory, df, markers_df, train_size,
         pass
     os.chdir(directory)
     # sml classification
+    print('Beginning of supervised learning classification ...')
+
+    df = marker_detection(odf, markers_df)
     svm_df = svm_classification(df, train_size, accuracy_threshold, smote_type,
                                 neighbors)
     knn_df = knn_classification(df, train_size, accuracy_threshold, smote_type,
@@ -558,7 +571,7 @@ def supervised_clustering(directory, df, markers_df, train_size,
                                                      on='Accession',
                                                      how='outer'),
                         [svm_df, knn_df, randomf_df, nb_df])
-
+    #
     _ = wrapping_up(df, reconst_df, markers_df, outname, accessory_file)
     return 'Done'
 
@@ -593,8 +606,11 @@ def write_mydf(dfs_list, outname, hdbscan, cutoff, accessory_file):
         final_df = pre_final_df
 
     # write final df
-    dataset = final_df['Dataset'].to_list()[0]
-    fpath = os.path.join(os.getcwd(), f'Final_df_{dataset}.{outname}.'
+    if 'Dataset' in final_df.columns.to_list():
+        dataset = '_' + final_df['Dataset'].to_list()[0]
+    else:
+        dataset = ''
+    fpath = os.path.join(os.getcwd(), f'Final_df{dataset}.{outname}.'
                                       f'Supervised.ML.tsv')
     if outname != 'tagm_added':
         final_df.to_csv(fpath, sep='\t', index=False)
@@ -659,29 +675,64 @@ def marker_checkup(entry, balancing_method):
         sys.exit(-1)
 
 
-def wrapping_up(master_df, fdf, marker_df, outname, accessory_file):
-    # writing sml predictions with previous sml prediction
-    if not marker_df.empty:
-        if 'marker' in master_df.columns.to_list():
-            if master_df['marker'].equals(marker_df['marker']):
-                del master_df['marker']
-            else:
-                master_df.rename(columns={'marker': 'marker_old'},
-                                 inplace=True)
-        intersect_cols = set(fdf.columns.to_list()).intersection(
-            set(master_df.columns.to_list()))
-        if intersect_cols:
-            master_df.rename(columns={col: f'{col}_old' for col in
-                                      fdf.columns.to_list()
-                                      if col != 'Accession'},
-                             inplace=True)
+def same_markers(df1, df2):
+    df1 = df1.loc[(df1['marker'] == 'unknown')]
+    df2 = df2.loc[(df2['marker'] == 'unknown')]
+    master_dic = dict(zip(df1['Accession'], df1['marker']))
+    marker_dic = dict(zip(df2['Accession'], df2['marker']))
+    return master_dic == marker_dic
 
-        ffdf = write_mydf([master_df, fdf, marker_df],
-                          outname, True, '', accessory_file)
-    # writing di novo sml prediction without any previous sml prediction
+
+def format_markers(df):
+    df['marker'] = df['marker'].str.replace(r' ', '_', regex=False)
+    return df
+
+
+def marker_detection(masterdf, markerdf):
+    if not markerdf.empty:
+        markerdf = format_markers(markerdf)
+        if 'marker' in masterdf.columns.to_list():
+            if same_markers(masterdf, markerdf):
+                del masterdf['marker']
+            else:
+                masterdf.rename(columns={'marker': 'marker_old'},
+                                inplace=True)
+            new_master = pd.merge(masterdf, markerdf,
+                                  on='Accession', how='left')
+            new_master['marker'].fillna('unknown', inplace=True)
+            return new_master
     else:
-        ffdf = write_mydf([master_df, fdf], outname,
-                        True, '', accessory_file)
+        if 'marker' in masterdf.columns.to_list():
+            return masterdf
+        else:
+            print('A marker file must be provided as no markers '
+                  'are present in the TMT file.\nExiting program...')
+            sys.exit(-1)
+
+
+def wrapping_up(master_df, fdf, marker_df, outname, accessory_file):
+    if 'hdb_labels_euclidean_TMT_pred_marker' in master_df.columns.to_list():
+        hdbscan = True
+    else:
+        hdbscan = False
+
+    if not marker_df.empty:  # changing colnames for previous sml predictions
+        if 'marker_old' in master_df.columns.to_list():
+            # fdf cols: 'Accession', 'SVM.prediction', 'KNN.prediction',
+            # 'Random.forest.prediction', 'Naive.Bayes'
+            intersect_cols = set(fdf.columns.to_list()).intersection(
+                set(master_df.columns.to_list()))
+            if intersect_cols:
+                master_df.rename(columns={col: f'{col}_old' for col in
+                                          fdf.columns.to_list()
+                                          if col != 'Accession'},
+                                 inplace=True)
+        # # writing sml predictions (old and new ones)
+        # ffdf = write_mydf([master_df, fdf],
+        #                   outname, hdbscan, '', accessory_file)
+    # writing sml predictions:
+    ffdf = write_mydf([master_df, fdf], outname,
+                      hdbscan, '', accessory_file)
 
     # return to main directory
     os.chdir('..')
