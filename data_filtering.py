@@ -84,10 +84,12 @@ def remove_cols_mval(df, threshold):
     for col in df.columns.to_list():
         size = len(df[col])
         nans = len([i for i in df[col] if np.isnan(i)])
-        if nans / size >= threshold:
+        if nans / size > threshold:
             ls.append(col)
     if ls:
         df.drop(ls, inplace=True, axis=1)
+        print(f'The following columns contain over {threshold} MV and have'
+              f' been removed:\n{ls}')
     return df
 
 
