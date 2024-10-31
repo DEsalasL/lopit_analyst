@@ -109,8 +109,9 @@ unwrapped = {
             'smote or unbalanced',
     'm29': 'motif for file recognition, e.g., Final_df*',
     'm30': 'minimum threshold (0 - 1) to remove channels with missing values '
-           '(mv).\ne.g., 0.5 will remove all channels containing more than 50% '
-           'missing values, but will keep the channels if mv = 50% or below'}
+           '(mv).\ne.g., 0.1 will remove all channels containing more than 10 '
+           'percent missing values\n, but will keep the channels if mv is '
+           'not more than 10 percent'}
 
 other_ms = {k: '\n'.join(wrap(unwrapped[k])) for k in unwrapped.keys()}
 
