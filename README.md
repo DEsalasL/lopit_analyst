@@ -1,6 +1,7 @@
-Lopit analyst is a program designed to analyse TMT labeled proteomics data that have been pre-processed with Proteome Discoverer 3.1+ (Thermo Scientific)
+# Lopit analyst
+it is a program designed to analyse TMT labeled proteomics data that have been pre-processed with Proteome Discoverer 3.1+ (Thermo Scientific)
 
-Installation
+# Installation
 CUDA/GPU requirements:
 •	Cuda 12+
 •	NVIDIA driver 450.80.02+
@@ -8,14 +9,18 @@ CUDA/GPU requirements:
 •	Python 3.11+
 
 1. create an environment with mamba(only valid in Waller lab server) and activate it:
+```
 source $HOME/.conda_source
 replace <user> for your user account handle in the following command line:
 mamba create --prefix=/wallerlab/opt/conda_dirs/<user>/envs/lopit_analyst python=3.11.0
 conda activate lopit_analyst
+```
 
 2.install CUDA standard (includes duDF, cuML, cuGraph, nx-cugraph, cuSpatioal, cuProj, cuxfilter, cuCIM, RAFT, cuVS)
+```
 mamba install -c rapidsai -c conda-forge -c nvidia rapids=24.10 python=3.11.0 cuda-version=11.8
 mamba install cuda-cudart cuda-version=11
+```
 Note: mamba is used to avoid known incompatibility issues between CUDA installation and conda
 
 3. install python modules using pip.  
@@ -32,10 +37,9 @@ pypdf
 seaborn
 patchworklib==0.6.2
 
-Usage
+#Usage
 
-
-1 Input files
+## 1 Input files
 Required files:
 Outputs from PD 3.1
 -	Psm file: PD file suffixed with ‘PSMs.txt’
@@ -52,12 +56,13 @@ Note:
 -	Annotation: file containing all known annotations for each accession. Please make sure headers do no contain spaces, dots (‘.’) or any special character (e.g., Pmarinus.eval0.001.PTHR17-Score.tsv)
 -	Tagm: tsv file containing TAGM classification (e.g., classification for 4-way experiment combination PLNPLOPL2PL1.TAGM-MAP.out.tsv)
 
-2 Environment activation
+## 2 Environment activation
+```
 source $HOME/.conda_source
 export PATH=$PATH:/home/<user>/Lopit_Analyst_Source  #  replace user by your own username
 conda activate lopit_analyst
-
-3. Workflow:
+```
+## 3. Workflow:
 Preparation of input files (data_prep), 
 Step 1. Diagnostics (diagnostics)
 Step 2. Removal of contaminants, low quality psms, etc (filtering)
@@ -66,7 +71,7 @@ Step 4. Missing value imputation and psm aggregation (imputation_aggregation)
 Step 5. Dimensionality reduction and clustering (clustering)
 Step 6. Supervised machine learning classification (sml)
 
-Study case:
+# Study case:
 To illustrate how to use the program,  the Perkinsus marinus dataset is used (available at /wallerlab/storage/dsalas/PD3.1_14082024_example).  
 Experiment description:
 PL1 and PL2.  trophozoites were lysed by nitrogen cavitation (hypotonic conditions: ~300 mOsm). The lysed material was separated in membrane and soluble fractions; the PL1 membrane fraction was separated with a self-established density gradient of iodixanol (16 % w:v) and the PL2 one was separated with a pre-formed density gradient. Fractions of each experiment were collected, pooled and each experiment was labeled with a TMT10plex.
@@ -134,7 +139,8 @@ Pmar_PD31_14082024_paper2_formatted_protein_features.tsv
 
 -------------
 
-### Important: The Following command lines assume you are in the same directory where the Formatted_input_data_Pmar directory was created. If not, you must provide absolute paths to the files
+### Important: 
+The Following command lines assume you are in the same directory where the Formatted_input_data_Pmar directory was created. If not, you must provide absolute paths to the files
 
 # Step 1 Diagnostics
 This step will provide several diagnostic plots that can be used to make decisions about downstream data processing.
@@ -176,15 +182,15 @@ lopit_analyst.py filtering --input Step1__Diagnostics_ Pmar/Parsed_PSM.headers.P
 Note: 
 exclude_taxon corresponds to a known contamination source in the file (host, symbiont, etc). Such taxon(taxa) must have been specified before running PD [If there were multiple contaminants, they must have been specified with a single handle (e.g., other_taxa)]. In the example, the argument ‘other’ is passed as the data comes from an axenic culture and no additional taxa are expected in the PSMs file to bypass this requirement (if unsure, check PSMs column called ‘Marked.as’). WARNING: not specifying this flag correctly will lead to an inaccurate filtering.
 
-Outputs produced: 
+### Outputs produced: 
 Within newly created ‘Step2__ First_filter_Pmar’ directory:
-Plots:
-Comparative_plots.filter1.pdf:
+#### Plots:
+##### Comparative_plots.filter1.pdf:
 -	Tag abundance by experiment pre and post filtering
 -	TMT avundance by experiment pre and post filtering
-Main output:
-Filtered data file: mv_calculated_full_df.tsv
-Master protein accessions report pre and post filtering by experiment: Filtering_1-report.tsv
+### Main output:
+- Filtered data file: mv_calculated_full_df.tsv
+- Master protein accessions report pre and post filtering by experiment: Filtering_1-report.tsv
 
 
 # Step 3. Removal of missing values (mv_removal)
@@ -196,18 +202,18 @@ lopit_analyst.py mv_removal --input Step2__First_filter_Pmar/mv_calculated_full_
 ```
 Note: remove-columns will eliminate TMT channels that contain the specified proportion (in this case 0.1 =  10%). This flag is optional, and it could be as astringent as desired (values between 0 - 1)
 
-Outputs produced: 
+### Outputs produced: 
 Within newly created ‘Step3__Missing_data_figures_Pmar’: pre and post PSMs removal plots
-Comparative_heatmaps_pre.pdf and Comparative_heatmaps_post.pdf
-Comparative_mv_cluster_tree_pre.pdf and Comparative_mv_cluster_tree_post.pdf
-Comparative_mv_correlation_heatmap_pre.pdf and Comparative_mv_correlation_heatmap_post.pdf
-Comparative_mvals_boxplots_pre.pdf and Comparative_mvals_boxplots_post.pdf
-Comparative_pie_charts_of_missing_values-pre.pdf
-Total_MV_by_TMT_channel_and_total_protein_groups
+- Comparative_heatmaps_pre.pdf and Comparative_heatmaps_post.pdf
+- Comparative_mv_cluster_tree_pre.pdf and Comparative_mv_cluster_tree_post.pdf
+- Comparative_mv_correlation_heatmap_pre.pdf and Comparative_mv_correlation_heatmap_post.pdf
+- Comparative_mvals_boxplots_pre.pdf and Comparative_mvals_boxplots_post.pdf
+- Comparative_pie_charts_of_missing_values-pre.pdf
+- Total_MV_by_TMT_channel_and_total_protein_groups
 
 Within newly created ‘Step3__DF_ready_for_mv_imputation_Pmar’:
-Filtered_df-ready-for-imputation.accession.tsv
-Filtered_df-ready-for-imputation.accession_psm.tsv
+- Filtered_df-ready-for-imputation.accession.tsv
+- Filtered_df-ready-for-imputation.accession_psm.tsv
 
 # Step 4. Missing value imputation and psm aggregation (imputation_aggregation)
 Data can be missing completely at random (MCAR), missing at random (MAR), and/or  missing not at random (MNAR). To determine how MVs occur is necessary to know how the data were generated. This workflow uses MinDet (deterministic minimal value using quantiles a minimal values) for MNAR and KNN (K-Nearest Neighborg) for MAR.
@@ -216,7 +222,9 @@ MNAR: some organelles may be present in a specific density range(s), which means
 MAR: generally, missing values in proteomics are due to the stochastic nature of data-dependent acquisition methods and imperfect detection efficiency of mass spectrometers, and when TMT labeling is involved, then quantification data, poor labelling efficiency in some channels, as well as insufficient intensity and poor ion statistic may lead to MVs. Note that the MVs  probability depends on peptide abundance.
 In the Perkinsus data, channels TMT126 (high density fraction) and TMT131N (cytosolic fraction) are expected to be MNAR. The remaining channels are expected to be MAR.  Note that after MV imputation, PSMs will be aggregated accordingly to their master protein accessions and experiment and given the experimental design we need to reconstitute the experiments PLO1 and PLO2, and PLN1 and PLN2 into single PLO and PLN experiments.  Aggregation uses the median values 
 
-# missing value imputation and aggregation of PSMs by master protein accession:
+
+\#missing value imputation and aggregation of PSMs by master protein accession:
+```
 lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/Filtered_df-ready-for-imputation.accession.tsv  \
                                         --out_name Pmar_acc \
                                         --accessory_data Formatted_input_data_Pmar/Pmar_formatted_phenodata.tsv \
@@ -226,17 +234,19 @@ lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputatio
                                         --mar knn \
                                         --channels_mar 'PL1-PL2-PLN1-PLN2-PLO1-PLO2:remainder' \
                                         --interlaced_reconstitution 'PLN:PLN1,PLN2;PLO:PLO1,PLO2'
-
-Outputs produced: 
+```
+### Outputs produced: 
 Within newly created ‘Step4__PSM_Normalization_Pmar_acc’:
-Plots:
-	Comparative_boxplots.jpg
-Comparative_boxplots-with_reconstitution.jpg
-VennDiagramPLN2-PLN1-PLO2-PL2-PLO1-PL1.pdf
-Main output: missing value imputed PSMs and PSMs aggregated by accession separated by experiment
-df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
+#### Plots:
+- Comparative_boxplots.jpg
+- Comparative_boxplots-with_reconstitution.jpg
+- VennDiagramPLN2-PLN1-PLO2-PL2-PLO1-PL1.pdf
+#### Main output: 
+Missing value imputed PSMs and PSMs aggregated by accession separated by experiment: 
+- df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
 
-# missing value imputation and aggregation of PSMs by accession and PMS sequence:
+
+\#missing value imputation and aggregation of PSMs by accession and PMS sequence:
 ```
 lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/ Filtered_df-ready-for-imputation.accession_psm.tsv \
                                         --out_name Pmar_accpsm \
@@ -248,14 +258,14 @@ lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputatio
                                         --channels_mar 'PL1-PL2-PLN1-PLN2-PLO1-PLO2:remainder' \
                                         --interlaced_reconstitution 'PLN:PLN1,PLN2;PLO:PLO1,PLO2'
 ```
-Outputs produced: 
+### Outputs produced: 
 Within newly created ‘Step4__PSM_Normalization_Pmar_acc’:
-Plots:
-	Comparative_boxplots.jpg
-Comparative_boxplots-with_reconstitution.jpg
-VennDiagramPLN2-PLN1-PLO2-PL2-PLO1-PL1.pdf
-Main output: missing value imputed PSMs and PSMs aggregated by accession-psms separated by experiment:
-df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
+#### Plots:
+- Comparative_boxplots.jpg
+- Comparative_boxplots-with_reconstitution.jpg
+- VennDiagramPLN2-PLN1-PLO2-PL2-PLO1-PL1.pdf
+#### Main output: 
+Missing value imputed PSMs and PSMs aggregated by accession-psms separated by experiment: df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
 Notes:
 1)	Format needed in ‘channels_mnar’, ‘channels_mar’, and ‘interlaced_reconstitution’ is explained in help menu (lopit_analyst.py imputation_aggregation -h)
 2)	Interlaced reconstitution only applies to experiments such as the one described for Perkinsus marinus
@@ -265,7 +275,8 @@ Notes:
 # Step 5. Dimensionality reduction and clustering (clustering)
 This step will carry out dimensionality reduction via tSNE and UMAP (both done on the TMT expression data), as well as unsupervised clustering using HDBSCAN (directly on the TMT expression data and on the UMAP embedding coordinates). Note that there are several flags that are specific to each method that need to be declared in the command line. For more information type: lopit_analyst.py clustering -h
 
-Missing value imputation and aggregation of PSMs by master protein accession:
+\# Missing value imputation and aggregation of PSMs by master protein accession:
+```
 lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_acc/df_for_clustering \
                             --out_name Pmar_acc \
                             --group_combinations all \
@@ -276,17 +287,18 @@ lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_acc/df_for_clu
                             --min_dist 0.25 \
                             --markers_file Pmar_385markers.19359.12112024.capitalized.tsv \
                             --protein_features Formatted_input_data_Pmar/Pmar_formatted_protein_features.tsv
-
-Outputs produced: 
+```
+### Outputs produced: 
 Within newly created ‘Step5__Clustering_Pmar_acc’:
-      New directories per each experiment combination and within each directory:
-	tSNE directory: <Experiment combination>_t-SNE.plot_2c_50.pdf
-                UMAP directory: <Experiment combination>_2-dims_UMAP_dim1_2cUMAP_dim2_2c.plot.pdf
-HDBSCAN directory: persistence and stats by TMT expression data and UMAP. Experiment combination classification using Euclidean and Manhattan distances by TMT expression data and UMAP. Sumaries TMT expression data and UMAP.
-Coordinates_ALL_<experiment_combination>_df.tsv: data containing tSNE, UMAP, HDBSCAN results
-If protein features were provided the main output is Final_df_<experiment_combination>.tsv data containing tSNE, UMAP, HDBSCAN results and appended protein features. Otherwise, Coordinates_ALL_<experiment_combination>_df.tsv is the file to be used in the next step.
+  New directories per each experiment combination and within each directory:
+- tSNE directory: <Experiment combination>_t-SNE.plot_2c_50.pdf
+- UMAP directory: <Experiment combination>_2-dims_UMAP_dim1_2cUMAP_dim2_2c.plot.pdf
+- HDBSCAN directory: persistence and stats by TMT expression data and UMAP. Experiment combination classification using Euclidean and Manhattan distances by TMT expression data and UMAP. Sumaries TMT expression data and UMAP.
+- Coordinates_ALL_<experiment_combination>_df.tsv: data containing tSNE, UMAP, HDBSCAN results
+- If protein features were provided the main output is Final_df_<experiment_combination>.tsv data containing tSNE, UMAP, HDBSCAN results and appended protein features. Otherwise, Coordinates_ALL_<experiment_combination>_df.tsv is the file to be used in the next step.
 
-Missing value imputation and aggregation of PSMs by master protein accession and psms:
+\# Missing value imputation and aggregation of PSMs by master protein accession and psms:
+```
 lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_accpsm/df_for_clustering \
                             --out_name Pmar_accpsm \
                             --group_combinations all \
@@ -297,15 +309,9 @@ lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_accpsm/df_for_
                             --min_dist 0.25 \
                             --markers_file Pmar_385markers.19359.12112024.capitalized.tsv \
                             --protein_features Formatted_input_data_Pmar/Pmar_formatted_protein_features.tsv
-
-Outputs produced: 
-Within newly created ‘Step5__Clustering_Pmar_accpsm’:
-      New directories per each experiment combination and within each directory:
-	tSNE directory: <Experiment combination>_t-SNE.plot_2c_50.pdf
-                UMAP directory: <Experiment combination>_2-dims_UMAP_dim1_2cUMAP_dim2_2c.plot.pdf
-HDBSCAN directory: persistence and stats by TMT expression data and UMAP. Experiment combination classification using Euclidean and Manhattan distances by TMT expression data and UMAP. Sumaries TMT expression data and UMAP.
-Coordinates_ALL_<experiment_combination>_df.tsv: data containing tSNE, UMAP, HDBSCAN results
-If protein features were provided the main output is Final_df_<experiment_combination>.tsv data containing tSNE, UMAP, HDBSCAN results and appended protein features. Otherwise, Coordinates_ALL_<experiment_combination>_df.tsv is the file to be used in the next step.
+```
+### Outputs produced: 
+Within newly created ‘Step5__Clustering_Pmar_accpsm’:same outputs as above but by accession-psm
 
 Notes:
 1)	UMAP coordinates can be used as input for clustering and machine learning because UMAP is a deterministic method (unlike t-SNE)
@@ -316,7 +322,8 @@ Notes:
 
 # Step 6. Supervised machine learning classification (sml)
 Four supervised machine learning methods are implemented: Support vector machine (SVM), K-Nearest Neighbors (KNN), Random Forest (RF), and Naïve Bayes (NB). All of these are estimated for all experiment combinations  in Step5. The markers provided for training can be used as they are specifying the method ‘unbalanced’ to the ‘--balancing_method’ flag. However, the variable number of proteins working in different organelles, hence, the variable number of available markers per organelle can create biases during classification process. A way to mitigate such a bias is to use a balanced training set via generation of synthetic markers (e.g., ‘borderline’, ‘over_under’ or ‘smote’).  a Three and four majority rule classification is also generated using HDBSCAN classification and the four methods.  TAGM classification may be added at a later stage if provided, then HDBSCAN is replaced for TAGM for the three and four majority rule classification.
-SML by master protein accession:
+
+\# SML by master protein accession:
 ```
 lopit_analyst.py sml --input Step5__Clustering_Pmar_acc \
                      --out_name Pmar_acc_smote \
@@ -325,18 +332,19 @@ lopit_analyst.py sml --input Step5__Clustering_Pmar_acc \
                      --balancing_method smote \
                      --accessory_file Pmar_385markers.19359.12112024.capitalized.tsv
 ```
-Outputs produced: 
+### Outputs produced: 
 Within newly created ‘Step6__SML_predictions_Pmar_acc’:
-	A new directory for each directory in Step5 is created containing:
-	Maing output:	Final_df_<experiment_combination>..SML.Supervised.ML.tsv
-	Precision matrices and classification reports (precision, recall, f1-score, support):
-1)	SVM.accuracy.estimations.xlsx	
-2)	KNN.accuracy.estimations.xlsx
-3)	Random_forest.accuracy.estimations.xlsx
-4)	Naive_Bayes.accuracy.estimations.xlsx
+A new directory for each directory in Step5 is created containing:
+### Maing output:
+Final_df_<experiment_combination>.SML.Supervised.ML.tsv
+Precision matrices and classification reports (precision, recall, f1-score, support):
+- SVM.accuracy.estimations.xlsx	
+- KNN.accuracy.estimations.xlsx
+- Random_forest.accuracy.estimations.xlsx
+- Naive_Bayes.accuracy.estimations.xlsx
 
 
-SML by master protein accession and psms:
+\# SML by master protein accession and psms:
 ```
 lopit_analyst.py sml --input Step5__Clustering_Pmar_accpsm \
                      --out_name Pmar_accpsm_smote \
@@ -345,13 +353,6 @@ lopit_analyst.py sml --input Step5__Clustering_Pmar_accpsm \
                      --balancing_method smote \
                      --accessory_file Pmar_385markers.19359.12112024.capitalized.tsv
 ```
-Outputs produced: 
-Within newly created ‘Step6__SML_predictions_Pmar_accpsm’:
-	A new directory for each directory in Step5 is created containing:
-	Maing output:	Final_df_<experiment_combination>.SML.Supervised.ML.tsv
-	Precision matrices and classification reports (precision, recall, f1-score, support):
-1)	SVM.accuracy.estimations.xlsx	
-2)	KNN.accuracy.estimations.xlsx
-3)	Random_forest.accuracy.estimations.xlsx
-4)	Naive_Bayes.accuracy.estimations.xlsx
+### Outputs produced: 
+Within newly created ‘Step6__SML_predictions_Pmar_accpsm’: same outputs as above but by accession-psm
 
