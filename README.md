@@ -220,10 +220,13 @@ Within newly created ‘Step3__DF_ready_for_mv_imputation_Pmar’:
 
 # Step 4. Missing value imputation and psm aggregation (imputation_aggregation)
 Data can be missing completely at random (MCAR), missing at random (MAR), and/or  missing not at random (MNAR). To determine how MVs occur is necessary to know how the data were generated. This workflow uses MinDet (deterministic minimal value using quantiles a minimal values) for MNAR and KNN (K-Nearest Neighborg) for MAR.
-How to deal with MVs:
-MNAR: some organelles may be present in a specific density range(s), which means that fractions outside that range may completely lack of such an organelle-specific proteins. For example, the highest density fraction may be devoid of organelles that will be in the lowest density fractions or the soluble fraction, and the soluble fraction (cytosol) in a HyperLopit experiment may exclude organelles from the insoluble fractions.
-MAR: generally, missing values in proteomics are due to the stochastic nature of data-dependent acquisition methods and imperfect detection efficiency of mass spectrometers, and when TMT labeling is involved, then quantification data, poor labelling efficiency in some channels, as well as insufficient intensity and poor ion statistic may lead to MVs. Note that the MVs  probability depends on peptide abundance.
-In the Perkinsus data, channels TMT126 (high density fraction) and TMT131N (cytosolic fraction) are expected to be MNAR. The remaining channels are expected to be MAR.  Note that after MV imputation, PSMs will be aggregated accordingly to their master protein accessions and experiment and given the experimental design we need to reconstitute the experiments PLO1 and PLO2, and PLN1 and PLN2 into single PLO and PLN experiments.  Aggregation uses the median values 
+#### How to deal with MVs:
+### MNAR:
+Some organelles may be present in a specific density range(s), which means that fractions outside that range may completely lack of such an organelle-specific proteins. For example, the highest density fraction may be devoid of organelles that will be in the lowest density fractions or the soluble fraction, and the soluble fraction (cytosol) in a HyperLopit experiment may exclude organelles from the insoluble fractions.
+### MAR: 
+Generally, missing values in proteomics are due to the stochastic nature of data-dependent acquisition methods and imperfect detection efficiency of mass spectrometers, and when TMT labeling is involved, then quantification data, poor labelling efficiency in some channels, as well as insufficient intensity and poor ion statistic may lead to MVs. Note that the MVs  probability depends on peptide abundance.
+
+- In the Perkinsus data, channels TMT126 (high density fraction) and TMT131N (cytosolic fraction) are expected to be MNAR. The remaining channels are expected to be MAR.  Note that after MV imputation, PSMs will be aggregated accordingly to their master protein accessions and experiment and given the experimental design we need to reconstitute the experiments PLO1 and PLO2, and PLN1 and PLN2 into single PLO and PLN experiments.  Aggregation uses the median values 
 
 
 \#missing value imputation and aggregation of PSMs by master protein accession:
@@ -268,8 +271,9 @@ Within newly created ‘Step4__PSM_Normalization_Pmar_acc’:
 - Comparative_boxplots-with_reconstitution.jpg
 - VennDiagramPLN2-PLN1-PLO2-PL2-PLO1-PL1.pdf
 #### Main output: 
-Missing value imputed PSMs and PSMs aggregated by accession-psms separated by experiment: df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
-Notes:
+Missing value imputed PSMs and PSMs aggregated by accession-psms separated by experiment: 
+- df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
+#### Notes:
 1)	Format needed in ‘channels_mnar’, ‘channels_mar’, and ‘interlaced_reconstitution’ is explained in help menu (lopit_analyst.py imputation_aggregation -h)
 2)	Interlaced reconstitution only applies to experiments such as the one described for Perkinsus marinus
 3)	missing value imputation and aggregation of PSMs by accession and PMS sequence will take 2 or 3 times more time than missing value imputation and aggregation of PSMs by master protein accession to be completed. 
@@ -339,12 +343,12 @@ lopit_analyst.py sml --input Step5__Clustering_Pmar_acc \
 Within newly created ‘Step6__SML_predictions_Pmar_acc’:
 A new directory for each directory in Step5 is created containing:
 ### Maing output:
-Final_df_<experiment_combination>.SML.Supervised.ML.tsv
-Precision matrices and classification reports (precision, recall, f1-score, support):
-- SVM.accuracy.estimations.xlsx	
-- KNN.accuracy.estimations.xlsx
-- Random_forest.accuracy.estimations.xlsx
-- Naive_Bayes.accuracy.estimations.xlsx
+- Final_df_<experiment_combination>.SML.Supervised.ML.tsv
+- Precision matrices and classification reports (precision, recall, f1-score, support):
+    - SVM.accuracy.estimations.xlsx	
+    - KNN.accuracy.estimations.xlsx
+    - Random_forest.accuracy.estimations.xlsx
+    - Naive_Bayes.accuracy.estimations.xlsx
 
 
 \# SML by master protein accession and psms:
