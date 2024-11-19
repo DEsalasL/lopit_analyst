@@ -1,14 +1,14 @@
 # Lopit analyst
-it is a program designed to analyse TMT labeled proteomics data that have been pre-processed with Proteome Discoverer 3.1+ (Thermo Scientific)
+A program for analysing TMT labeled proteomics data that have been pre-processed with Proteome Discoverer 3.1+ (Thermo Scientific)
 
 # Installation
 CUDA/GPU requirements:
-•	Cuda 12+
+•	Cuda 11+
 •	NVIDIA driver 450.80.02+
 •	Volta architecture or better (compute capability >=7.0)
 •	Python 3.11+
 
-1. create an environment with mamba(only valid in Waller lab server) and activate it:
+1. Create an environment with mamba (only valid in Waller lab server) and activate it:
 ```
 source $HOME/.conda_source
 replace <user> for your user account handle in the following command line:
@@ -16,14 +16,14 @@ mamba create --prefix=/wallerlab/opt/conda_dirs/<user>/envs/lopit_analyst python
 conda activate lopit_analyst
 ```
 
-2.install CUDA standard (includes duDF, cuML, cuGraph, nx-cugraph, cuSpatioal, cuProj, cuxfilter, cuCIM, RAFT, cuVS)
+2. Install CUDA standard (includes duDF, cuML, cuGraph, nx-cugraph, cuSpatioal, cuProj, cuxfilter, cuCIM, RAFT, cuVS)
 ```
 mamba install -c rapidsai -c conda-forge -c nvidia rapids=24.10 python=3.11.0 cuda-version=11.8
 mamba install cuda-cudart cuda-version=11
 ```
 Note: mamba is used to avoid known incompatibility issues between CUDA installation and conda
 
-3. install python modules using pip.  
+3. Install python modules using pip.  
 pip install <module>
 modules required:
 PyPDF2
@@ -73,12 +73,12 @@ Step 6. Supervised machine learning classification (sml)
 
 # Study case:
 To illustrate how to use the program,  the Perkinsus marinus dataset is used (available at /wallerlab/storage/dsalas/PD3.1_14082024_example).  
-Experiment description:
+### Experiment description:
 PL1 and PL2.  trophozoites were lysed by nitrogen cavitation (hypotonic conditions: ~300 mOsm). The lysed material was separated in membrane and soluble fractions; the PL1 membrane fraction was separated with a self-established density gradient of iodixanol (16 % w:v) and the PL2 one was separated with a pre-formed density gradient. Fractions of each experiment were collected, pooled and each experiment was labeled with a TMT10plex.
 PLO. trophozoites were lysed by nitrogen cavitation (isotonic conditions ~750 mOsm). The lysed material was separated with a pre-formed density gradient. Odd and even fractions of the resolving gradient were pooled into two 10plexes called PLO1 and PLO2, using 10 of the 11 channels of a TMT11plex; the 11 channel was reserved for the bridging sample containing approximately equal proportion of peptides taken from each fraction across the gradient.
 PLN. Same experimental design as PLO, but the homogenisation and gradient media were supplemented with K+ and Mg2+ salts.
 Note that given the PLO and PLN experimental design they need to be bioinformatically reconstituted using ‘Internal Reference Scaling’ into single experiments each (PLO and PLN.
-Proteome discoverer (3.1) processing of raw mass spectra:
+### Proteome discoverer (3.1) processing of raw mass spectra:
 The raw mass spectra were searched against 17278 non-redundant predicted protein sequences from a newly obtained genome of P. marinus ATCC 50983. Culture was axenic, hence additional taxa contaminant protein files were provided (other than cRAP). Peptide-to-spectrum match was performed using Mascot with FDR validation via Percolator. Only PSMs at FDR ≤ 1 % were retained. Peptide grouping, protein inference, and protein grouping were carried out under strict parsimony. TMT quantification was done with 20 ppm mass tolerance and the most confident centroid for the reporter ion peak detection. TMT abundances were reported as signal-to-noise ratios. No filters were applied. 
 
 Source files are available at /wallerlab/storage/dsalas/PD3.1_14082024_example
@@ -93,14 +93,13 @@ lopit_analyst.py data_prep --task psms \
                            --out_name Pmar \
                            --rename_columns 'PL1:TMT131-TMT131N;PL2:TMT131-TMT131N' \
                            --use_column 'File.ID' \
-                           -- experiment_prefixes 'PL1-F1;PL2-F2;PLN1-F3;PLN2-F4;PLO1-F5;PLO2-F6'
+                           --experiment_prefixes 'PL1-F1;PL2-F2;PLN1-F3;PLN2-F4;PLO1-F5;PLO2-F6'
 ```
-
-Outputs produced:
+### Outputs produced:
 Within newly created ‘Formatted_input_data_Pmar’ directory:
-If --rename_columns passed:  Pmar_formatted_PSMs.matrix_w_re-declared_channels.tsv
-If --rename_columns not passed: Pmar_unformatted_PSMs.matrix.tsv
-Note:
+- If --rename_columns passed:  Pmar_formatted_PSMs.matrix_w_re-declared_channels.tsv
+- If --rename_columns not passed: Pmar_unformatted_PSMs.matrix.tsv
+#### Note:
 1)	To understand the format needed in ‘rename_columns’ and ‘experiment_prefixes’ type:
 lopit_analyst.py data_prep -h
 2)	The following recipes will format files and deposit them in a directory prefixed by ‘Formatted_input_data’ and suffixed with the output string you specify (in example:  ‘Pmar’)
@@ -112,9 +111,9 @@ lopit_analyst.py data_prep --task pheno_data \
                            --input PL_pData.tsv \
                            --out_name Pmar
 ```
-Outputs produced: 
+### Outputs produced: 
 Within newly created ‘Formatted_input_data_Pmar’ directory:
-Pmar_formatted_phenodata.tsv
+- Pmar_formatted_phenodata.tsv
 
 ## Format of protein information:
 ```
@@ -123,9 +122,9 @@ lopit_analyst.py data_prep --task protein_data \
                            --out_name Pmar \
                            --search_engine Mascot
 ```
-Outputs produced: 
+### Outputs produced: 
 Within newly created ‘Formatted_input_data_Pmar’ directory:
-Pmar_formatted_protein_data.tsv
+- Pmar_formatted_protein_data.tsv
 
 ## Format of sequence features:
 ```
@@ -133,9 +132,9 @@ lopit_analyst.py data_prep --task protein_features \
                            --input Sequence_properties.tsv  \
                            --out_name Pmar
 ```
-Outputs produced: 
+### Outputs produced: 
 Within newly created ‘Formatted_input_data_Pmar’ directory:
-Pmar_PD31_14082024_paper2_formatted_protein_features.tsv
+- Pmar_PD31_14082024_paper2_formatted_protein_features.tsv
 
 -------------
 
@@ -179,8 +178,8 @@ lopit_analyst.py filtering --input Step1__Diagnostics_ Pmar/Parsed_PSM.headers.P
                            --out_name Pmar \
                            --exclude_taxon other
 ```
-Note: 
-exclude_taxon corresponds to a known contamination source in the file (host, symbiont, etc). Such taxon(taxa) must have been specified before running PD [If there were multiple contaminants, they must have been specified with a single handle (e.g., other_taxa)]. In the example, the argument ‘other’ is passed as the data comes from an axenic culture and no additional taxa are expected in the PSMs file to bypass this requirement (if unsure, check PSMs column called ‘Marked.as’). WARNING: not specifying this flag correctly will lead to an inaccurate filtering.
+#### Note: 
+The flag 'exclude_taxon' corresponds to a known contamination source in the file (host, symbiont, etc). Such taxon(taxa) must have been specified before running PD [If there were multiple contaminants, they must have been specified with a single handle (e.g., other_taxa)]. In the example, the argument ‘other’ is passed as the data comes from an axenic culture and no additional taxa are expected in the PSMs file to bypass this requirement (if unsure, check PSMs column called ‘Marked.as’). WARNING: not specifying this flag correctly will lead to an inaccurate filtering.
 
 ### Outputs produced: 
 Within newly created ‘Step2__ First_filter_Pmar’ directory:
@@ -200,7 +199,8 @@ lopit_analyst.py mv_removal --input Step2__First_filter_Pmar/mv_calculated_full_
                             --out_name Pmar \
                             --remove_columns 0.1
 ```
-Note: remove-columns will eliminate TMT channels that contain the specified proportion (in this case 0.1 =  10%). This flag is optional, and it could be as astringent as desired (values between 0 - 1)
+#### Note: 
+Remove-columns will eliminate TMT channels that contain the specified proportion (in this case 0.1 =  10%). This flag is optional, and it could be as astringent as desired (values between 0 - 1)
 
 ### Outputs produced: 
 Within newly created ‘Step3__Missing_data_figures_Pmar’: pre and post PSMs removal plots
@@ -313,7 +313,7 @@ lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_accpsm/df_for_
 ### Outputs produced: 
 Within newly created ‘Step5__Clustering_Pmar_accpsm’:same outputs as above but by accession-psm
 
-Notes:
+#### Notes:
 1)	UMAP coordinates can be used as input for clustering and machine learning because UMAP is a deterministic method (unlike t-SNE)
 2)	PCA is not automatically calculated. To do so, you must enable the flag --pca  True. Multidimensional UMAP is time consuming, and it needs to be enabled in the command line.
 3)	Input will take the shared prefix of the files obtained in the previous step. In this case is ‘df_for_clustering’
