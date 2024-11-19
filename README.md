@@ -84,11 +84,11 @@ Note that given the PLO and PLN experimental design they need to be bioinformati
 ### Proteome discoverer (3.1) processing of raw mass spectra:
 The raw mass spectra were searched against 17278 non-redundant predicted protein sequences from a newly obtained genome of P. marinus ATCC 50983. Culture was axenic, hence additional taxa contaminant protein files were provided (other than cRAP). Peptide-to-spectrum match was performed using Mascot with FDR validation via Percolator. Only PSMs at FDR ≤ 1 % were retained. Peptide grouping, protein inference, and protein grouping were carried out under strict parsimony. TMT quantification was done with 20 ppm mass tolerance and the most confident centroid for the reporter ion peak detection. TMT abundances were reported as signal-to-noise ratios. No filters were applied. 
 
-Source files are available at /wallerlab/storage/dsalas/PD3.1_14082024_example
+
 
 # Preparation of input files 
 Recipes for preparing Perkinsus marinus input files
-
+- Source files are available at /wallerlab/storage/dsalas/PD3.1_14082024_example
 ## Preparing PSMs file:
 ```
 lopit_analyst.py data_prep --task psms \
@@ -100,8 +100,8 @@ lopit_analyst.py data_prep --task psms \
 ```
 ### Outputs produced:
 Within newly created ‘Formatted_input_data_Pmar’ directory:
-- If --rename_columns passed:  Pmar_formatted_PSMs.matrix_w_re-declared_channels.tsv
-- If --rename_columns not passed: Pmar_unformatted_PSMs.matrix.tsv
+- If '--rename_columns' passed:  Pmar_formatted_PSMs.matrix_w_re-declared_channels.tsv
+- If '--rename_columns' not passed: Pmar_unformatted_PSMs.matrix.tsv
 #### Note:
 1)	To understand the format needed in ‘rename_columns’ and ‘experiment_prefixes’ type:
 lopit_analyst.py data_prep -h
@@ -170,11 +170,11 @@ Within newly created ‘Step1__Diagnostics_ Pmar’ directory:
 -	TMT abundances by experiment
 ##### Labeling efficiency
 Excel files with labeling efficiency calculations by experiment.
-**Main output**:
+#### Main output:
 Parsed_PSM.headers.Pmar.tsv 
 
 # Step2 data basic filtering of low-quality PSMs
-This step will retain unambiguous PSMs, PSMs that match a unique protein group, PSMs of rank = 1, PSMs of rank = 1 by search engine, target and decoy PSMs matched to a given spectrum and ranked by their score PSMs identified for MS2-spectra, and PSMs with inject time < 50 ms. Simultaneously, it will remove PSMs annotated as contaminants and provided to the ‘--exclude_taxon’ flag, PSMs with isolation interference > 50%, PSMs with fewer than half SPS precursors matched, PSMs with low S/N, entries == "NoQuanLabels"
+This step will **retain** unambiguous PSMs, PSMs that match a unique protein group, PSMs of rank = 1, PSMs of rank = 1 by search engine, target and decoy PSMs matched to a given spectrum and ranked by their score PSMs identified for MS2-spectra, and PSMs with inject time < 50 ms. Simultaneously, it will **remove** PSMs annotated as contaminants and provided to the ‘--exclude_taxon’ flag, PSMs with isolation interference > 50%, PSMs with fewer than half SPS precursors matched, PSMs with low S/N, entries == "NoQuanLabels"
 
 ```
 lopit_analyst.py filtering --input Step1__Diagnostics_ Pmar/Parsed_PSM.headers.Pmar.tsv \
@@ -182,7 +182,7 @@ lopit_analyst.py filtering --input Step1__Diagnostics_ Pmar/Parsed_PSM.headers.P
                            --exclude_taxon other
 ```
 #### Note: 
-The flag 'exclude_taxon' corresponds to a known contamination source in the file (host, symbiont, etc). Such taxon(taxa) must have been specified before running PD [If there were multiple contaminants, they must have been specified with a single handle (e.g., other_taxa)]. In the example, the argument ‘other’ is passed as the data comes from an axenic culture and no additional taxa are expected in the PSMs file to bypass this requirement (if unsure, check PSMs column called ‘Marked.as’). WARNING: not specifying this flag correctly will lead to an inaccurate filtering.
+The flag '--exclude_taxon' corresponds to a known contamination source in the file (host, symbiont, etc). Such taxon(taxa) must have been specified before running PD [If there were multiple contaminants, they must have been specified with a single handle (e.g., other_taxa)]. In the example, the argument ‘other’ is passed as the data comes from an axenic culture and no additional taxa are expected in the PSMs file to bypass this requirement (if unsure, check PSMs column called ‘Marked.as’). **WARNING:** not specifying this flag correctly will lead to an inaccurate filtering.
 
 ### Outputs produced: 
 Within newly created ‘Step2__ First_filter_Pmar’ directory:
@@ -222,11 +222,12 @@ Within newly created ‘Step3__DF_ready_for_mv_imputation_Pmar’:
 Data can be missing completely at random (MCAR), missing at random (MAR), and/or  missing not at random (MNAR). To determine how MVs occur is necessary to know how the data were generated. This workflow uses MinDet (deterministic minimal value using quantiles a minimal values) for MNAR and KNN (K-Nearest Neighborg) for MAR.
 #### How to deal with MVs:
 ### MNAR:
-Some organelles may be present in a specific density range(s), which means that fractions outside that range may completely lack of such an organelle-specific proteins. For example, the highest density fraction may be devoid of organelles that will be in the lowest density fractions or the soluble fraction, and the soluble fraction (cytosol) in a HyperLopit experiment may exclude organelles from the insoluble fractions.
+Some organelles may be present in a specific density range(s), which means that fractions outside that range may completely lack of such an organelle proteins. For example, the highest density fraction may be devoid of organelles that will be in the lowest density fractions or the soluble fraction, and the soluble fraction (cytosol) in a HyperLopit experiment may exclude organelles from the insoluble fractions.
 ### MAR: 
 Generally, missing values in proteomics are due to the stochastic nature of data-dependent acquisition methods and imperfect detection efficiency of mass spectrometers, and when TMT labeling is involved, then quantification data, poor labelling efficiency in some channels, as well as insufficient intensity and poor ion statistic may lead to MVs. Note that the MVs  probability depends on peptide abundance.
 
-- In the Perkinsus data, channels TMT126 (high density fraction) and TMT131N (cytosolic fraction) are expected to be MNAR. The remaining channels are expected to be MAR.  Note that after MV imputation, PSMs will be aggregated accordingly to their master protein accessions and experiment and given the experimental design we need to reconstitute the experiments PLO1 and PLO2, and PLN1 and PLN2 into single PLO and PLN experiments.  Aggregation uses the median values 
+- In the Perkinsus data, channels TMT126 (high density fraction) and TMT131N (cytosolic fraction) are expected to be MNAR. The remaining channels are expected to be MAR.  Note that after MV imputation, PSMs will be aggregated accordingly to their master protein accessions and experiment, 
+ and given the experimental design we need to reconstitute the experiments PLO1 and PLO2, and PLN1 and PLN2 into single PLO and PLN experiments.  Aggregation uses PSMs median values.
 
 
 \#missing value imputation and aggregation of PSMs by master protein accession:
@@ -274,7 +275,7 @@ Within newly created ‘Step4__PSM_Normalization_Pmar_acc’:
 Missing value imputed PSMs and PSMs aggregated by accession-psms separated by experiment: 
 - df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
 #### Notes:
-1)	Format needed in ‘channels_mnar’, ‘channels_mar’, and ‘interlaced_reconstitution’ is explained in help menu (lopit_analyst.py imputation_aggregation -h)
+1)	Format needed in ‘--channels_mnar’, ‘--channels_mar’, and ‘--interlaced_reconstitution’ flags is explained in help menu (lopit_analyst.py imputation_aggregation -h)
 2)	Interlaced reconstitution only applies to experiments such as the one described for Perkinsus marinus
 3)	missing value imputation and aggregation of PSMs by accession and PMS sequence will take 2 or 3 times more time than missing value imputation and aggregation of PSMs by master protein accession to be completed. 
 
