@@ -3,12 +3,12 @@ A program for analysing TMT labeled proteomics data that have been pre-processed
 
 # Installation
 CUDA/GPU requirements:
-•	Cuda 11+
-•	NVIDIA driver 450.80.02+
-•	Volta architecture or better (compute capability >=7.0)
-•	Python 3.11+
+- Cuda 11+
+- NVIDIA driver 450.80.02+
+- Volta architecture or better (compute capability >=7.0)
+- Python 3.11+
 
-1. Create an environment with mamba (only valid in Waller lab server) and activate it:
+### 1. Create an environment with mamba (only valid in Waller lab server) and activate it:
 ```
 source $HOME/.conda_source
 replace <user> for your user account handle in the following command line:
@@ -16,45 +16,45 @@ mamba create --prefix=/wallerlab/opt/conda_dirs/<user>/envs/lopit_analyst python
 conda activate lopit_analyst
 ```
 
-2. Install CUDA standard (includes duDF, cuML, cuGraph, nx-cugraph, cuSpatioal, cuProj, cuxfilter, cuCIM, RAFT, cuVS)
+### 2. Install CUDA standard (includes duDF, cuML, cuGraph, nx-cugraph, cuSpatioal, cuProj, cuxfilter, cuCIM, RAFT, cuVS)
 ```
 mamba install -c rapidsai -c conda-forge -c nvidia rapids=24.10 python=3.11.0 cuda-version=11.8
 mamba install cuda-cudart cuda-version=11
 ```
-Note: mamba is used to avoid known incompatibility issues between CUDA installation and conda
+**Note**: mamba is used to avoid known incompatibility issues between CUDA installation and conda
 
-3. Install python modules using pip.  
+### 3. Install python modules using pip.  
 pip install <module>
 modules required:
-PyPDF2
-dash
-dask
-hdbscan
-matplotlib
-missingno
-openpyxl
-pypdf
-seaborn
-patchworklib==0.6.2
+- PyPDF2
+- dash
+- dask
+- hdbscan
+- matplotlib
+- missingno
+- openpyxl
+- pypdf
+- seaborn
+- patchworklib==0.6.2
 
 #Usage
 
 ## 1 Input files
 Required files:
 Outputs from PD 3.1
--	Psm file: PD file suffixed with ‘PSMs.txt’
--	Protein file: PD file suffixed with ‘Proteins.txt’
+-	**Psm file**: PD file suffixed with ‘PSMs.txt’
+-	**Protein file**: PD file suffixed with ‘Proteins.txt’
 Prepared by user:
--	Phenotypic file. Is a file containing information regarding the experiment and it must contain the following columns: ‘Sample.name’, ‘Experiment.name’, ‘Tag’, ‘Tag.name’, ‘Gradient.type’, ‘Peptide.amount’.  Peptide.amount column indicates the amount of total peptide for each channel before pooling the sample for mass spectrometry (e.g., PL_pData.tsv). 
+-	**Phenotypic file**: It is a file containing information regarding the experiment and it must contain the following columns: ‘Sample.name’, ‘Experiment.name’, ‘Tag’, ‘Tag.name’, ‘Gradient.type’, ‘Peptide.amount’.  Peptide.amount column indicates the amount of total peptide for each channel before pooling the sample for mass spectrometry (e.g., PL_pData.tsv). 
 Optional files:
--	Markers: tsv file containing marker accessions to be used during supervised machine learning. However, this file must contain ALL accessions that appear in the predicted proteome files used for protein identification in PD. This is because any detected protein found in the proteomics experiment is reported by PD in the psm file.  These accessions should correspond to predicted nuclear, mitochondrial, plastid and/or symbiont proteins (fasta files) either single or either combination.  Format: two columns: ‘Accession’, ‘marker’   Note: any accession that is not labelled as marker must be labeled as ‘unknown’ (case sensitive)
--	Proteins Feature: tsv file containing the paths to outputs of Signal Peptide (e.g., Pmarinus.hq.2022_02_02.pred_res_2023_06_20.tsv), Target Peptide (e.g., Pmarinus.hq.2022_02_02_targetp2.tsv), deepTMHMM (e.g., Pmarinus.deeptmhmm.tmhmm.first-tm.tsv), Deeploc (e.g., Perkinsus_marinus.deeploc.140424.tsv), phobius (e.g., Pmarinus.hq.2022_02_02.Phobius.short.out). Format: two tab separated columns: ‘Type’, ‘Path’. See file called Sequence_properties.tsv
-Note: 
-1) Outputs must contain each accession’s information in a single line  (aka short outputs)
-2) deepTMHM file must be preprocessed and contain two columns (e.g., Pmarinus.deeptmhmm.tmhmm.first-tm.tsv)
-3) the program will accept one, two or several of the Signal Peptide, Target Peptide, deepTMHMM, Deeploc, phobius inputs. These inputs must be in ‘short’ format (all the information for one accession must be in a single line)
--	Annotation: file containing all known annotations for each accession. Please make sure headers do no contain spaces, dots (‘.’) or any special character (e.g., Pmarinus.eval0.001.PTHR17-Score.tsv)
--	Tagm: tsv file containing TAGM classification (e.g., classification for 4-way experiment combination PLNPLOPL2PL1.TAGM-MAP.out.tsv)
+-	**Markers** (optional for step 5 by mandarory for step 6): tsv file containing marker accessions to be used during supervised machine learning. However, this file must contain ALL accessions that appear in the predicted proteome files used for protein identification in PD. This is because any detected protein found in the proteomics experiment is reported by PD in the psm file.  These accessions should correspond to predicted nuclear, mitochondrial, plastid and/or symbiont proteins (fasta files) either single or either combination.  Format: two columns: ‘Accession’, ‘marker’   Note: any accession that is not labelled as marker must be labeled as ‘unknown’ (case sensitive)
+-	**Proteins Feature**: tsv file containing the paths to outputs of Signal Peptide (e.g., Pmarinus.hq.2022_02_02.pred_res_2023_06_20.tsv), Target Peptide (e.g., Pmarinus.hq.2022_02_02_targetp2.tsv), deepTMHMM (e.g., Pmarinus.deeptmhmm.tmhmm.first-tm.tsv), Deeploc (e.g., Perkinsus_marinus.deeploc.140424.tsv), phobius (e.g., Pmarinus.hq.2022_02_02.Phobius.short.out). Format: two tab separated columns: ‘Type’, ‘Path’. See file called Sequence_properties.tsv
+    #### Note: 
+    - Outputs must contain each accession’s information in a single line  (aka short outputs)
+    - deepTMHM file must be preprocessed and contain two columns (e.g., Pmarinus.deeptmhmm.tmhmm.first-tm.tsv)
+    - the program will accept one, two or several of the Signal Peptide, Target Peptide, deepTMHMM, Deeploc, phobius inputs. These inputs must be in ‘short’ format (all the information for one accession must be in a single line)
+-	**Annotation**: file containing all known annotations for each accession. Please make sure headers do no contain spaces, dots (‘.’) or any special character (e.g., Pmarinus.eval0.001.PTHR17-Score.tsv)
+-	**Tagm**: tsv file containing TAGM classification (e.g., classification for 4-way experiment combination PLNPLOPL2PL1.TAGM-MAP.out.tsv)
 
 ## 2 Environment activation
 ```
@@ -62,21 +62,24 @@ source $HOME/.conda_source
 export PATH=$PATH:/home/<user>/Lopit_Analyst_Source  #  replace user by your own username
 conda activate lopit_analyst
 ```
-## 3. Workflow:
-Preparation of input files (data_prep), 
-Step 1. Diagnostics (diagnostics)
-Step 2. Removal of contaminants, low quality psms, etc (filtering)
-Step 3. Removal of missing values (mv_removal)
-Step 4. Missing value imputation and psm aggregation (imputation_aggregation)
-Step 5. Dimensionality reduction and clustering (clustering)
-Step 6. Supervised machine learning classification (sml)
+## 3. Workflow description:
+  - Preparation of input files (data_prep), 
+  - Step 1. Diagnostics (diagnostics)
+  - Step 2. Removal of contaminants, low quality psms, etc (filtering)
+  - Step 3. Removal of missing values (mv_removal)
+  - Step 4. Missing value imputation and psm aggregation (imputation_aggregation)
+  - Step 5. Dimensionality reduction and clustering (clustering)
+  - Step 6. Supervised machine learning classification (sml)
 
 # Study case:
 To illustrate how to use the program,  the Perkinsus marinus dataset is used (available at /wallerlab/storage/dsalas/PD3.1_14082024_example).  
 ### Experiment description:
-PL1 and PL2.  trophozoites were lysed by nitrogen cavitation (hypotonic conditions: ~300 mOsm). The lysed material was separated in membrane and soluble fractions; the PL1 membrane fraction was separated with a self-established density gradient of iodixanol (16 % w:v) and the PL2 one was separated with a pre-formed density gradient. Fractions of each experiment were collected, pooled and each experiment was labeled with a TMT10plex.
-PLO. trophozoites were lysed by nitrogen cavitation (isotonic conditions ~750 mOsm). The lysed material was separated with a pre-formed density gradient. Odd and even fractions of the resolving gradient were pooled into two 10plexes called PLO1 and PLO2, using 10 of the 11 channels of a TMT11plex; the 11 channel was reserved for the bridging sample containing approximately equal proportion of peptides taken from each fraction across the gradient.
-PLN. Same experimental design as PLO, but the homogenisation and gradient media were supplemented with K+ and Mg2+ salts.
+#### PL1 and PL2.  
+Trophozoites were lysed by nitrogen cavitation (hypotonic conditions: ~300 mOsm). The lysed material was separated in membrane and soluble fractions; the PL1 membrane fraction was separated with a self-established density gradient of iodixanol (16 % w:v) and the PL2 one was separated with a pre-formed density gradient. Fractions of each experiment were collected, pooled and each experiment was labeled with a TMT10plex.
+#### PLO. 
+Trophozoites were lysed by nitrogen cavitation (isotonic conditions ~750 mOsm). The lysed material was separated with a pre-formed density gradient. Odd and even fractions of the resolving gradient were pooled into two 10plexes called PLO1 and PLO2, using 10 of the 11 channels of a TMT11plex; the 11 channel was reserved for the bridging sample containing approximately equal proportion of peptides taken from each fraction across the gradient.
+#### PLN. 
+Same experimental design as PLO, but the homogenisation and gradient media were supplemented with K+ and Mg2+ salts.
 Note that given the PLO and PLN experimental design they need to be bioinformatically reconstituted using ‘Internal Reference Scaling’ into single experiments each (PLO and PLN.
 ### Proteome discoverer (3.1) processing of raw mass spectra:
 The raw mass spectra were searched against 17278 non-redundant predicted protein sequences from a newly obtained genome of P. marinus ATCC 50983. Culture was axenic, hence additional taxa contaminant protein files were provided (other than cRAP). Peptide-to-spectrum match was performed using Mascot with FDR validation via Percolator. Only PSMs at FDR ≤ 1 % were retained. Peptide grouping, protein inference, and protein grouping were carried out under strict parsimony. TMT quantification was done with 20 ppm mass tolerance and the most confident centroid for the reporter ion peak detection. TMT abundances were reported as signal-to-noise ratios. No filters were applied. 
