@@ -352,7 +352,7 @@ A new directory for each directory in Step5 is created containing:
     - Naive_Bayes.accuracy.estimations.xlsx
 
 
-\# SML by master protein accession and psms:
+\# SML by master protein accession and psms sequence:
 ```
 lopit_analyst.py sml --input Step5__Clustering_Pmar_accpsm \
                      --out_name Pmar_accpsm_smote \
