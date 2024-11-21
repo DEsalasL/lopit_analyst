@@ -37,6 +37,10 @@ modules required:
 - seaborn
 - patchworklib==0.6.2
 
+### 4. LA modules: (make it easy-> distributee as conda env)
+-
+
+
 #Usage
 
 ## 1 Input files
@@ -215,8 +219,8 @@ Within newly created ‘Step3__Missing_data_figures_Pmar’: pre and post PSMs r
 - Total_MV_by_TMT_channel_and_total_protein_groups
 
 Within newly created ‘Step3__DF_ready_for_mv_imputation_Pmar’:
-- Filtered_df-ready-for-imputation.accession.tsv
-- Filtered_df-ready-for-imputation.accession_psm.tsv
+- Filtered_df-ready-for-imputation.protein.tsv
+- Filtered_df-ready-for-imputation.peptide.tsv
 
 # Step 4. Missing value imputation and psm aggregation (imputation_aggregation)
 Data can be missing completely at random (MCAR), missing at random (MAR), and/or  missing not at random (MNAR). To determine how MVs occur is necessary to know how the data were generated. This workflow uses MinDet (deterministic minimal value using quantiles a minimal values) for MNAR and KNN (K-Nearest Neighborg) for MAR.
@@ -232,8 +236,8 @@ Generally, missing values in proteomics are due to the stochastic nature of data
 
 \#missing value imputation and aggregation of PSMs by master protein accession:
 ```
-lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/Filtered_df-ready-for-imputation.accession.tsv  \
-                                        --out_name Pmar_acc \
+lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/Filtered_df-ready-for-imputation.protein.tsv  \
+                                        --out_name Pmar_protein_level \
                                         --accessory_data Formatted_input_data_Pmar/Pmar_formatted_phenodata.tsv \
                                         --protein_data Formatted_input_data_Pmar/Pmar_formatted_protein_data.tsv \
                                         --mnar MinDet \
@@ -253,10 +257,10 @@ Missing value imputed PSMs and PSMs aggregated by accession separated by experim
 - df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
 
 
-\#missing value imputation and aggregation of PSMs by accession and PMS sequence:
+\#missing value imputation and aggregation of PSMs by accession and PMS sequence (peptide level):
 ```
-lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/ Filtered_df-ready-for-imputation.accession_psm.tsv \
-                                        --out_name Pmar_accpsm \
+lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/ Filtered_df-ready-for-imputation.peptide.tsv \
+                                        --out_name Pmar_peptide_level \
                                         --accessory_data Formatted_input_data_Pmar/Pmar_formatted_phenodata.tsv \
                                         --protein_data Formatted_input_data_Pmar/Pmar_formatted_protein_data.tsv \
                                         --mnar MinDet \
@@ -286,7 +290,7 @@ This step will carry out dimensionality reduction via tSNE and UMAP (both done o
 \# Missing value imputation and aggregation of PSMs by master protein accession:
 ```
 lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_acc/df_for_clustering \
-                            --out_name Pmar_acc \
+                            --out_name Pmar_protein_level \
                             --group_combinations all \
                             --method_tsne exact \
                             --perplexity 50 \
@@ -305,10 +309,10 @@ Within newly created ‘Step5__Clustering_Pmar_acc’:
 - Coordinates_ALL_<experiment_combination>_df.tsv: data containing tSNE, UMAP, HDBSCAN results
 - If protein features were provided the main output is Final_df_<experiment_combination>.tsv data containing tSNE, UMAP, HDBSCAN results and appended protein features. Otherwise, Coordinates_ALL_<experiment_combination>_df.tsv is the file to be used in the next step.
 
-\# Missing value imputation and aggregation of PSMs by master protein accession and psms:
+\# Missing value imputation and aggregation of PSMs by master protein accession and psm sequence (peptide level):
 ```
-lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_accpsm/df_for_clustering \
-                            --out_name Pmar_accpsm \
+lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_peptide_level/df_for_clustering \
+                            --out_name Pmar_peptide_level \
                             --group_combinations all \
                             --method_tsne exact \
                             --perplexity 50 \
@@ -319,7 +323,7 @@ lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_accpsm/df_for_
                             --protein_features Formatted_input_data_Pmar/Pmar_formatted_protein_features.tsv
 ```
 ### Outputs produced: 
-Within newly created ‘Step5__Clustering_Pmar_accpsm’:same outputs as above but by accession-psm
+Within newly created ‘Step5__Clustering_Pmar_peptide_level’:same outputs as above but by peptide.
 
 #### Notes:
 1)	UMAP coordinates can be used as input for clustering and machine learning because UMAP is a deterministic method (unlike t-SNE)
@@ -334,15 +338,15 @@ Four supervised machine learning methods are implemented: Support vector machine
 
 \# SML by master protein accession:
 ```
-lopit_analyst.py sml --input Step5__Clustering_Pmar_acc \
-                     --out_name Pmar_acc_smote \
+lopit_analyst.py sml --input Step5__Clustering_Pmar_protein_level \
+                     --out_name Pmar_protein_level_smote \
                      --recognition_motif  Final_df_P* \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
                      --balancing_method smote \
                      --accessory_file Pmar_385markers.19359.12112024.capitalized.tsv
 ```
 ### Outputs produced: 
-Within newly created ‘Step6__SML_predictions_Pmar_acc’:
+Within newly created ‘Step6__SML_predictions_Pmar_protein_level’:
 A new directory for each directory in Step5 is created containing:
 ### Maing output:
 - Final_df_<experiment_combination>.SML.Supervised.ML.tsv
@@ -356,7 +360,7 @@ A new directory for each directory in Step5 is created containing:
 \# SML by master protein accession and psms sequence:
 ```
 lopit_analyst.py sml --input Step5__Clustering_Pmar_accpsm \
-                     --out_name Pmar_accpsm_smote \
+                     --out_name Pmar_peptide_level_smote \
                      --recognition_motif  Final_df_P* \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
                      --balancing_method smote \
