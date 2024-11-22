@@ -48,7 +48,7 @@ Required files:
 Outputs from PD 3.1
 -	**Psm file**: PD file suffixed with ‘PSMs.txt’
 -	**Protein file**: PD file suffixed with ‘Proteins.txt’
-Prepared by user:
+#### Prepared by user:
 -	**Phenotypic file**: It is a file containing information regarding the experiment and it must contain the following columns: ‘Sample.name’, ‘Experiment.name’, ‘Tag’, ‘Tag.name’, ‘Gradient.type’, ‘Peptide.amount’.  Peptide.amount column indicates the amount of total peptide for each channel before pooling the sample for mass spectrometry (e.g., PL_pData.tsv). 
 #### Optional files:
 -	**Markers** (optional for step 5 but mandarory for step 6): tsv file containing marker accessions to be used during supervised machine learning. However, this file must contain ALL accessions that appear in the predicted proteome files used for protein identification in PD. This is because any detected protein found in the proteomics experiment is reported by PD in the psm file.  These accessions should correspond to predicted nuclear, mitochondrial, plastid and/or symbiont proteins (fasta files) either single or either combination.  Format: two columns: ‘Accession’, ‘marker’   Note: any accession that is not labelled as marker must be labeled as ‘unknown’ (case sensitive)
