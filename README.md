@@ -95,7 +95,7 @@ Recipes for preparing Perkinsus marinus input files
 - Source files are available at /wallerlab/storage/dsalas/PD3.1_14082024_example
 ## Preparing PSMs file:
 ```
-lopit_analyst.py data_prep --task psms \
+lopit_analyst.py data_prep --data_type psms \
                            --input PL12NO_PSMs.txt \
                            --out_name Pmar \
                            --rename_columns 'PL1:TMT131-TMT131N;PL2:TMT131-TMT131N' \
@@ -114,7 +114,7 @@ lopit_analyst.py data_prep -h
 
 ## Preparing phenotypic file:
 ```
-lopit_analyst.py data_prep --task pheno_data \
+lopit_analyst.py data_prep --data_type pheno_data \
                            --input PL_pData.tsv \
                            --out_name Pmar
 ```
@@ -124,7 +124,7 @@ Within newly created ‘Formatted_input_data_Pmar’ directory:
 
 ## Format of protein information:
 ```
-lopit_analyst.py data_prep --task protein_data \
+lopit_analyst.py data_prep --data_type protein_data \
                            --input PL12NO_Proteins.txt \
                            --out_name Pmar \
                            --search_engine Mascot
@@ -135,7 +135,7 @@ Within newly created ‘Formatted_input_data_Pmar’ directory:
 
 ## Format of sequence features:
 ```
-lopit_analyst.py data_prep --task protein_features \
+lopit_analyst.py data_prep --data_type protein_features \
                            --input Sequence_properties.tsv  \
                            --out_name Pmar
 ```
