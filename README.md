@@ -289,7 +289,7 @@ This step will carry out dimensionality reduction via tSNE and UMAP (both done o
 
 \# Missing value imputation and aggregation of PSMs by master protein accession:
 ```
-lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_acc/df_for_clustering \
+lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_protein_level/df_for_clustering \
                             --out_name Pmar_protein_level \
                             --group_combinations all \
                             --method_tsne exact \
