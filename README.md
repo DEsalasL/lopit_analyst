@@ -152,7 +152,7 @@ The Following command lines assume you are in the same directory where the Forma
 This step will provide several diagnostic plots that can be used to make decisions about downstream data processing.
 ```
 lopit_analyst.py diagnostics --input Formatted_input_data_Pmar/Pmar_formatted_PSMs.matrix_w_re-declared_channels.tsv \
-                             --additional_file Formatted_input_data_Pmar/Pmar_formatted_phenodata.tsv \
+                             --accessory_data Formatted_input_data_Pmar/Pmar_formatted_phenodata.tsv \
                              --out_name Pmar
 ```
 ### Outputs produced:
@@ -181,7 +181,7 @@ Parsed_PSM.headers.Pmar.tsv
 This step will **retain** unambiguous PSMs, PSMs that match a unique protein group, PSMs of rank = 1, PSMs of rank = 1 by search engine, target and decoy PSMs matched to a given spectrum and ranked by their score PSMs identified for MS2-spectra, and PSMs with injection time < 50 ms. Simultaneously, it will **remove** PSMs annotated as contaminants and provided to the ‘--exclude_taxon’ flag, PSMs with isolation interference > 50%, PSMs with fewer than half SPS precursors matched, PSMs with low S/N, entries == "NoQuanLabels"
 
 ```
-lopit_analyst.py filtering --input Step1__Diagnostics_ Pmar/Parsed_PSM.headers.Pmar.tsv \
+lopit_analyst.py filtering --input Step1__Diagnostics_Pmar/Parsed_PSM.headers.Pmar.tsv \
                            --out_name Pmar \
                            --exclude_taxon other
 ```
@@ -189,7 +189,7 @@ lopit_analyst.py filtering --input Step1__Diagnostics_ Pmar/Parsed_PSM.headers.P
 The flag '--exclude_taxon' corresponds to a known contamination source in the file (host, symbiont, etc). Such taxon(taxa) must have been specified before running PD [If there were multiple contaminants, they must have been specified with a single handle (e.g., other_taxa)]. In the example, the argument ‘other’ is passed as the data comes from an axenic culture and no additional taxa are expected in the PSMs file to bypass this requirement (if unsure, check PSMs column called ‘Marked.as’). **WARNING:** not specifying this flag correctly will lead to an inaccurate filtering.
 
 ### Outputs produced: 
-Within newly created ‘Step2__ First_filter_Pmar’ directory:
+Within newly created ‘Step2__First_filter_Pmar’ directory:
 #### Plots:
 ##### Comparative_plots.filter1.pdf:
 -	Tag abundance by experiment pre and post filtering
@@ -234,7 +234,7 @@ Generally, missing values in proteomics are due to the stochastic nature of data
  and given the experimental design we need to reconstitute the experiments PLO1 and PLO2, and PLN1 and PLN2 into single PLO and PLN experiments.  Aggregation uses PSMs median values.
 
 
-\#missing value imputation and aggregation of PSMs by master protein accession:
+\#missing value imputation and aggregation of PSMs by master protein accession (protein level):
 ```
 lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/Filtered_df-ready-for-imputation.protein.tsv  \
                                         --out_name Pmar_protein_level \
@@ -259,7 +259,7 @@ Missing value imputed PSMs and PSMs aggregated by accession separated by experim
 
 \#missing value imputation and aggregation of PSMs by accession and PMS sequence (peptide level):
 ```
-lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/ Filtered_df-ready-for-imputation.peptide.tsv \
+lopit_analyst.py imputation_aggregation --input Step3__DF_ready_for_mv_imputation_Pmar/Filtered_df-ready-for-imputation.peptide.tsv \
                                         --out_name Pmar_peptide_level \
                                         --accessory_data Formatted_input_data_Pmar/Pmar_formatted_phenodata.tsv \
                                         --protein_data Formatted_input_data_Pmar/Pmar_formatted_protein_data.tsv \
