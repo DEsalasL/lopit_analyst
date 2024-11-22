@@ -343,7 +343,7 @@ lopit_analyst.py sml --input Step5__Clustering_Pmar_protein_level \
                      --recognition_motif  Final_df_P* \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
                      --balancing_method smote \
-                     --accessory_file Pmar_385markers.19359.12112024.capitalized.tsv
+                     --additional_data Pmarinus.eval0.001.PTHR17-Score.tsv
 ```
 ### Outputs produced: 
 Within newly created ‘Step6__SML_predictions_Pmar_protein_level’:
@@ -364,7 +364,7 @@ lopit_analyst.py sml --input Step5__Clustering_Pmar_accpsm \
                      --recognition_motif  Final_df_P* \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
                      --balancing_method smote \
-                     --accessory_file Pmar_385markers.19359.12112024.capitalized.tsv
+                     --additional_data Pmarinus.eval0.001.PTHR17-Score.tsv
 ```
 ### Outputs produced: 
 Within newly created ‘Step6__SML_predictions_Pmar_accpsm’: same outputs as above but by accession-psm
