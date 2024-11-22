@@ -276,7 +276,7 @@ Within newly created ‘Step4__PSM_Normalization_Pmar_acc’:
 - Comparative_boxplots-with_reconstitution.jpg
 - VennDiagramPLN2-PLN1-PLO2-PL2-PLO1-PL1.pdf
 #### Main output: 
-Missing value imputed PSMs and PSMs aggregated by accession-psms separated by experiment: 
+Missing value imputed PSMs and PSMs aggregated by accession-psms (peptide level) separated by experiment: 
 - df_for_clustering_PL1.tsv, df_for_clustering_PL2.tsv, df_for_clustering_PLN.tsv, df_for_clustering_PLO.tsv
 #### Notes:
 1)	Format needed in ‘--channels_mnar’, ‘--channels_mar’, and ‘--interlaced_reconstitution’ flags is explained in help menu (lopit_analyst.py imputation_aggregation -h)
