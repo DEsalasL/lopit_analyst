@@ -340,8 +340,9 @@ Four supervised machine learning methods are implemented: Support vector machine
 ```
 lopit_analyst.py sml --input Step5__Clustering_Pmar_protein_level \
                      --out_name Pmar_protein_level_smote \
-                     --recognition_motif  Final_df_P* \
+                     --recognition_motif  Final_df_ \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
+                     --markers_type global \
                      --balancing_method smote \
                      --additional_file Pmarinus.eval0.001.PTHR17-Score.tsv
 ```
@@ -361,8 +362,9 @@ A new directory for each directory in Step5 is created containing:
 ```
 lopit_analyst.py sml --input Step5__Clustering_Pmar_accpsm \
                      --out_name Pmar_peptide_level_smote \
-                     --recognition_motif  Final_df_P* \
+                     --recognition_motif  Final_df_ \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
+                     --markers_type global \
                      --balancing_method smote \
                      --additional_file Pmarinus.eval0.001.PTHR17-Score.tsv
 ```
