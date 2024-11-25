@@ -2,6 +2,8 @@ import os
 import gc
 import ast
 import sys
+import time
+import pathlib
 import lopit_utils
 import numpy as np
 import pandas as pd
@@ -10,6 +12,7 @@ import seaborn as sns
 import patchworklib as pw
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
+
 
 
 __author__ = 'Dayana E. Salas-Leiva'
@@ -131,6 +134,10 @@ def large_pivot_tab(odf, d, outname, out, psms=True, reconstituted=False):
     ldf.to_csv(outfile, sep='\t', index=False, na_rep='NA')
     _ = gc.collect()
     pivot_df = pd.read_csv(outfile, sep='\t', header=0)
+    while ldf.shape != pivot_df.shape:
+        print('Waiting for ldf to be re-loaded before removing source file')
+        time.sleep(0.1)
+    pathlib.Path(outfile).unlink(missing_ok=True)
     return pivot_df
 
 
@@ -294,7 +301,9 @@ def missing_cols_by_experiment(df):
     return tor
 
 
-def run_diagnostics(psmfile, phenotypefile, density, writeout, outname):
+def run_diagnostics(psmfile, phenotypefile, density, writeout,
+                    outname):
+
     print('\n*** - Beginning of diagnostics workflow - ***\n')
     #  ---  Matrix pre-processing step 1
     #  Creating a directory and moving into it  #
@@ -333,9 +342,10 @@ def run_diagnostics(psmfile, phenotypefile, density, writeout, outname):
         output.write(line)
     #   ---
     statistics_df = pd.DataFrame(pre_parsed_psm .describe(include='all'))
-    if writeout:
-        pre_parsed_psm.to_csv(f'Parsed_PSM.headers.{outname}.tsv',
+
+    pre_parsed_psm.to_csv(f'Parsed_PSM.headers.{outname}.tsv',
                               sep='\t', index=False)
+    if writeout:
         statistics_df.to_csv(f'Statistics.test.{outname}.tsv',
                              sep='\t', index=True)  # see README1
 

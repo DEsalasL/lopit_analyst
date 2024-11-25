@@ -80,7 +80,6 @@ def scree_plot(explained_variance_ratio, pc_list, dataset):
     return 'Done'
 
 
-
 def pca_plot(df, dataset):
     sns.scatterplot(data=df, x='PC1', y='PC2') # hue="Label")
     plt.title(f'{dataset} PCA', fontsize=16)

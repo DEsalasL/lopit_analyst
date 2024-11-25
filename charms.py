@@ -125,7 +125,7 @@ def guessing_headers(file_in):
     return clean_df
 
 
-def sequence_properties(in_file, out_name, cmd):
+def sequence_properties(in_file, out_name, cmd, verbosity):
     _ = lopit_utils.command_line_out('protein_features', **cmd)
 
     df = pd.read_csv(in_file, sep=r'\t|\,', header=0,

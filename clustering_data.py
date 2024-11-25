@@ -19,10 +19,13 @@ from sklearn.decomposition import PCA
 from matplotlib.colors import hex2color
 from natsort import index_natsorted, natsorted
 from sklearn.preprocessing import StandardScaler
+
 try:
+    import rmm
     from cuml.manifold import TSNE
     cuml = True
     sklearn = False
+    rmm.reinitialize(pool_allocator=True, managed_memory=True)
 except ImportError:
     sklearn = True
     cuml = False
@@ -32,10 +35,16 @@ except ImportError:
 #  -- cluster projection parameters ---   #
 
 
-def create_myloop(perplexity, add_umap, marker_info='', pred=False):
-    param = [('PC1', 'PC2', 'PCA'), (f'tSNE_dim_1_2c_{perplexity}',
-                                     f'tSNE_dim_2_2c_{perplexity}', 'tSNE'),
-             ('UMAP_dim1_2c', 'UMAP_dim2_2c', 'UMAP')]
+def create_myloop(perplexity, add_umap, pca, marker_info='', pred=False,):
+    if pca:
+        param = [('PC1', 'PC2', 'PCA'),
+                 (f'tSNE_dim_1_2c_{perplexity}', f'tSNE_dim_2_2c_{perplexity}',
+                  'tSNE'),
+                 ('UMAP_dim1_2c', 'UMAP_dim2_2c', 'UMAP')]
+    else:
+        param = [(f'tSNE_dim_1_2c_{perplexity}', f'tSNE_dim_2_2c_{perplexity}',
+                  'tSNE'),
+                 ('UMAP_dim1_2c', 'UMAP_dim2_2c', 'UMAP')]
 
     myloop = {('hdb_labels_euclidean_TMT', 'hdb_prob_euclidean_TMT',
                'euclidean'): param,
@@ -257,7 +266,7 @@ def my_pca(df, tmtcols, dataset, comp):
 
 
 # @profile
-def my_umap(df, dataset, markers, min_dist, n_neighbors):
+def my_umap(df, dataset, markers, min_dist, n_neighbors, verbosity):
     # umap for only 2 components
     umap_2dim_df = create_umap(df, f'{dataset}_2-dims', markers,
                                2, min_dist, n_neighbors)
@@ -270,8 +279,9 @@ def my_umap(df, dataset, markers, min_dist, n_neighbors):
     del umap_xdim_df['marker']
     umap_all_dims_df = pd.merge(umap_2dim_df, umap_xdim_df, left_index=True,
                                 right_index=True, how='inner')
-    umap_all_dims_df.to_csv('UMAP_multiple_dims_df.tsv', sep='\t',
-                            index=True)
+    if verbosity:
+        umap_all_dims_df.to_csv('UMAP_multiple_dims_df.tsv',
+                                sep='\t', index=True)
     return umap_all_dims_df
 
 
@@ -472,6 +482,8 @@ def df_integration(df1, df2, dataset):
     for i in ['level_0', 'level0', 'index']:
         if i in ndf.columns.to_list():
             del ndf[i]
+    print(f'Your final file containing TMT and accessory data integrated is:\n'
+          f'Final_df_{dataset}.tsv')
     fpath = os.path.join(os.getcwd(), f'Final_df_{dataset}.tsv')
     ndf.to_csv(fpath, sep='\t', index=False)
     return ndf
@@ -632,20 +644,23 @@ def psms_sums_by_protgroup(sdf):
     return df
 
 
-def progressive_df(df1, df2, outname, how, anot=pd.DataFrame()):
+def progressive_df(df1, df2, outname, how, verbosity=False,
+                   anot=pd.DataFrame()):
     fpath = os.path.join(os.getcwd(), f'{outname}_df.tsv')
     merged = pd.merge(df1, df2, left_index=True, right_index=True, how=how)
     if not anot.empty:
         anot.set_index('Accession', inplace=True)
         new_merged = pd.merge(merged, anot, left_index=True,
                               right_index=True, how=how)
-        new_merged.to_csv(fpath, sep='\t', index=True)
+        if verbosity:
+            new_merged.to_csv(fpath, sep='\t', index=True)
     else:
-        merged.to_csv(fpath, sep='\t', index=True)
+        if verbosity:
+            merged.to_csv(fpath, sep='\t', index=True)
     return merged
 
 
-def accessory_data(entry1, entry2, entry3):
+def accessory_data(entry1, entry2, entry3, global_df):
     if entry1 is not None:
         markers_map = pd.read_csv(entry1, sep=r'\t|,', header=0,
                                   engine='python')
@@ -678,14 +693,30 @@ def accessory_data(entry1, entry2, entry3):
                   'as: Accession')
             additional_df = pd.DataFrame()
     else:
-        print('No protein additional file has been provided')
+        print('No additional protein file has been provided')
         additional_df = pd.DataFrame()
-    return markers_map, features_df, additional_df
+
+    out_dfs = []
+    for df in [(markers_map, 'marker'),
+               (features_df, 'features file'),
+               (additional_df, 'accessory file')]:
+        dataframe, dtype = df
+        if dataframe.empty:
+            out_dfs.append(dataframe)
+        else:
+            # print(f'working on: {dtype}')
+            out_dfs.append(lopit_utils.accesion_checkup(global_df,
+                                                        dataframe,
+                                                        dtype))
+
+    nmarkers_map, nfeatures_df, nadditional_df = out_dfs
+    return nmarkers_map, nfeatures_df, nadditional_df
 
 
 def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
                  hdbscan_on_umap, features_df, epsilon, min_dist, min_size,
-                 min_sample, n_neighbors, annotations_df):
+                 min_sample, n_neighbors, annotations_df, pca,
+                 feature_projection, projections_enabled, verbosity):
 
     print(f'***   Working on Dataset {dataset}   ***')
     newdir = gr.new_dir(f'{dataset}')
@@ -697,11 +728,13 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
                            [1 for i in range(0, df_slice.shape[0])]))
     else:
         markers = matching_markers(df_slice, markers_map)
-    print(f'Generating a PCA')
-    #   ---   PCA framework   ---   #
-    new_tmtcols = df_slice.filter(regex='^TMT').columns.to_list()
-    pca_99 = my_pca(df_slice, new_tmtcols, dataset, 0.99)
-
+    if pca:
+        print(f'Generating a PCA')
+        #   ---   PCA framework   ---   #
+        new_tmtcols = df_slice.filter(regex='^TMT').columns.to_list()
+        pca_99 = my_pca(df_slice, new_tmtcols, dataset, 0.99)
+    else:
+        pca_99 = None
     #   ---   tSNE framework   ---   #
     print('Generating tSNE embeddings')
     if perplexity is None:
@@ -710,31 +743,39 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     tsne_2coordinates = my_tsne(df_slice, dataset, markers, 2,
                                 tsne_method, perplexity)
     # progressive dataframe pca + tsne 2 components
-    pca_tsne_df_2 = progressive_df(pca_99, tsne_2coordinates,
-                                   'PCA_tSNE2c', 'outer')
+    if pca:
+        pca_tsne_df_2 = progressive_df(pca_99, tsne_2coordinates,
+                                       'PCA_tSNE2c', 'outer',
+                                       verbosity)
+    else:
+        pca_tsne_df_2 = tsne_2coordinates
+
     if sklearn:
         tsne_3coordinates = my_tsne(df_slice, dataset, markers, 3,
                                     tsne_method, perplexity)
         del tsne_3coordinates['marker']
         # progressive dataframe pca + tsne 3 components
         pca_tsne_df_3 = progressive_df(pca_tsne_df_2, tsne_3coordinates,
-                                       'PCA_tSNE3c', 'outer')
+                                       'PCA_tSNE3c', 'outer',
+                                       verbosity)
     else:
         pca_tsne_df_3 = pd.DataFrame()
 
     print('Generating UMAP embeddings')
     #   ---   UMAP framework   ---   #
     umap_coordinates = my_umap(df_slice, dataset, markers, min_dist,
-                               n_neighbors)
+                               n_neighbors, verbosity)
     # progressive dataframe pca + tsne + umap
+    if pca:
+        oname = 'PCA_tSNE_UMAP'
+    else:
+        oname = 'tSNE_UMAP'
     if not pca_tsne_df_3.empty:
         pca_tsne_umap_df = progressive_df(pca_tsne_df_3, umap_coordinates,
-                                          'PCA_tSNE_UMAP',
-                                          'inner')
+                                          oname, 'inner', verbosity)
     else:
         pca_tsne_umap_df = progressive_df(pca_tsne_df_2, umap_coordinates,
-                                          'PCA_tSNE_UMAP',
-                                          'inner')
+                                          oname, 'inner', verbosity)
 
     print('Generating HDBSCAN clusters')
     # ---   HDBSCAN framework on TMT expression   ---   #
@@ -777,56 +818,61 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     else:
         progress_df3 = progress_df2b.copy(deep=True)
 
-    print('Creating projections')
-    #   --- HDBSCAN cluster projections  --  #
-    if markers_map.empty:
-        myloop = create_myloop(perplexity, hdbscan_on_umap, '')
-    else:
-        myloop = create_myloop(perplexity, hdbscan_on_umap, 'marker',
-                               True)
-
-    projections_on_coordinates = projections(progress_df3, dataset,
-                                             (10, 50), myloop)
     #   --- df by user defined group with tmt and coordinates   ---   #
     progress_df4 = progressive_df(df_slice, progress_df3,
-                                         f'Coordinates_ALL_{dataset}',
-                                         'inner')
+                                  f'Coordinates_ALL_{dataset}',
+                                  'inner', verbosity=True)
 
-    newdir = gr.new_dir(f'TMT_abundance_by_cluster')
-    os.chdir(newdir)
-    for key in myloop.keys():
-        print(f'working on {key}')
-        a = gr.dist_abundance_profile_by_cluster(progress_df4, key[0],
-                                                 dataset)
-    os.chdir('..')
+    if projections_enabled:
+        print('Creating projections')
+        #   --- HDBSCAN cluster projections  --  #
+        if markers_map.empty:
+            myloop = create_myloop(perplexity, hdbscan_on_umap, pca,
+                                   '')
+        else:
+            myloop = create_myloop(perplexity, hdbscan_on_umap, pca,
+                                   'marker', True)
 
-    print('Working on Feature projections')
+        projections_on_coordinates = projections(progress_df3, dataset,
+                                                 (10, 50), myloop)
+
+        newdir = gr.new_dir(f'TMT_abundance_by_cluster')
+        os.chdir(newdir)
+        for key in myloop.keys():
+            print(f'working on {key}')
+            a = gr.dist_abundance_profile_by_cluster(progress_df4, key[0],
+                                                     dataset)
+        os.chdir('..')
+
     # #   ---  df integration with protein features  ---  #
     if not features_df.empty:
+        print('Integration of protein features to main dataframe')
         integrated_df = df_integration(progress_df4, features_df,
                                        dataset)
-
-        #   ---   Feature projections   ---   #
-
-        feat_tsne = feature_projections(integrated_df,
-                                        f'tSNE_dim_1_2c_{perplexity}',
-                                        f'tSNE_dim_2_2c_{perplexity}',
-                                        dataset,
-                                        'tSNE',
-                                        features_loop)
-        feat_umap = feature_projections(integrated_df,
-                                        'UMAP_dim1_2c',
-                                        'UMAP_dim2_2c',
-                                        dataset,
-                                        'UMAP',
-                                        features_loop)
+        if feature_projection:
+            print('Creating feature projections')
+            #   ---   Feature projections   ---   #
+            feat_tsne = feature_projections(integrated_df,
+                                            f'tSNE_dim_1_2c_{perplexity}',
+                                            f'tSNE_dim_2_2c_{perplexity}',
+                                            dataset,
+                                            'tSNE',
+                                            features_loop)
+            feat_umap = feature_projections(integrated_df,
+                                            'UMAP_dim1_2c',
+                                            'UMAP_dim2_2c',
+                                            dataset,
+                                            'UMAP',
+                                            features_loop)
         #
     else:
         integrated_df = progress_df4.copy(deep=True)
-        print('features df is empty:\n'
-              'Ignore this message if you did not provide the file on purpose '
-              'otherwise something is wrong with the provided file')
-        print('Your FINAL FILE IS:', f'Coordinates_ALL_{dataset}_df.tsv')
+        print('Protein features dataframe is empty:\n'
+              '1) Ignore this message if you did not provide the file on '
+              'purpose, otherwise something is wrong with the provided file\n'
+              '2) If feature_projection flag was specified it will be \n'
+              'overridden as there is not feature df file to be integrated \n'
+              'with main dataframe')
 
     # #   ---  df integration with annotations  ---  #
     if not annotations_df.empty:
@@ -836,6 +882,9 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
         fpath = os.path.join(os.getcwd(),
                              f'Final_df_{dataset}.AccessoryInfo.tsv')
         final_merged.to_csv(fpath, sep='\t', index=False)
+    else:
+        print(f"If you did not provide 'protein feature' or 'accessory files',\n\
+              your FINAL FILE IS:', f'Coordinates_ALL_{dataset}_df.tsv")
 
     os.chdir('..')
     # *-*-* garbage collection *-*-* #
@@ -847,12 +896,11 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
 def cluster_analysis(files_list, features, datasets, tsne_method,
                      perplexity, mymarkers, fileout, hdbscan_on_umap,
                      epsilon, mindist, min_size, min_sample, n_neighbors,
-                     additional_info):
+                     additional_info, pca, feature_projection,
+                     projections_enabled, verbosity):
 
     print('*** - Beginning of clustering workflow - ***\n')
-    markers_map, features_df, annotations_df = accessory_data(mymarkers,
-                                                              features,
-                                                              additional_info)
+
     my_dfs = create_dic_df(files_list)
     newdir = lopit_utils.create_dir('Step5__Clustering',
                                     f'{fileout}')
@@ -864,6 +912,14 @@ def cluster_analysis(files_list, features, datasets, tsne_method,
 
     datasets = list(dfs_dic.keys())
 
+    #   ---  accession checkup and update of additional files  ---   #
+    global_df = pd.DataFrame(pd.concat([my_dfs[k].loc[:, 'Accession']
+                           for k in my_dfs.keys()]))
+    global_df.drop_duplicates(inplace=True)
+    markers_map, features_df, annotations_df = accessory_data(mymarkers,
+                                                              features,
+                                                              additional_info,
+                                                              global_df)
     #  clustering each dataset in parallel   #
     all_clst = Parallel(n_jobs=-1)(delayed(get_clusters)
                                           (dfs_dic, dataset, markers_map,
@@ -871,14 +927,17 @@ def cluster_analysis(files_list, features, datasets, tsne_method,
                                            hdbscan_on_umap, features_df,
                                            epsilon, mindist, min_size,
                                            min_sample, n_neighbors,
-                                           annotations_df)
+                                           annotations_df, pca,
+                                           feature_projection,
+                                           projections_enabled,
+                                           verbosity)
                                    for dataset in datasets)
     #  calculate shared clusters in files from all dfs_paths
-    shared_clusters = lopit_utils.clusters_across_datasets(all_clst)
+    #shared_clusters = lopit_utils.clusters_across_datasets(all_clst)
 
     #   ---
     print('Clustering workflow has finished. Bye ;)')
-    return shared_clusters
+    return 'Done'
 
 
 #   ---   Execute   ---   #

@@ -83,6 +83,9 @@ def remove_cols_mval(df, threshold):
     ls = []
     for col in df.columns.to_list():
         size = len(df[col])
+        t = [type(i) for i in df[col].to_list()]
+        print('df[col', df[col].to_list())
+        print(t)
         nans = len([i for i in df[col] if np.isnan(i)])
         if nans / size > threshold:
             ls.append(col)
@@ -93,22 +96,20 @@ def remove_cols_mval(df, threshold):
     return df
 
 
-def missing_values_calculation(df, col_rm_value):
+def missing_values_calculation(df, verbosity):
     dfs = []
     for experiment, subdf in df.groupby('Experiment'):
         subdf.dropna(axis=1, how='all', inplace=True)
         sdf_cols = list(subdf.filter(regex=r'^TMT.*\d+').columns)
         s = lopit_utils.nan(subdf, sdf_cols)
-        if col_rm_value is not None:
-            # remove columns with the specified mv threshold
-            s = remove_cols_mval(s, col_rm_value)
         dfs.append(s)
 
     # writing first level filtered dfs by experiment
-    for subdf in dfs:
-        exp = list(set(subdf['Experiment'].to_list()))
-        subdf.to_csv(f'mv_calculated_by_{exp[0]}.tsv', sep='\t',
-                     index=False, na_rep='NA')
+    if verbosity:
+        for subdf in dfs:
+            exp = list(set(subdf['Experiment'].to_list()))
+            subdf.to_csv(f'mv_calculated_by_{exp[0]}.tsv', sep='\t',
+                         index=False, na_rep='NA')
 
     #   ---   concatenate first level filted subdfs and writing   ---
     full_df = pd.concat(dfs)
@@ -128,8 +129,8 @@ def does_exclude_exists(df, exclude):
         sys.exit(-1)
 
 
-def run_data_filter(arg1, density, fileout, outname, exclude, sn_value,
-                    col_rm_value):
+def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
+
     print('\n*** - Beginning of data filtering workflow - ***\n')
     directory = lopit_utils.create_dir('Step2_',
                                        f'First_filter_{outname}')
@@ -140,14 +141,6 @@ def run_data_filter(arg1, density, fileout, outname, exclude, sn_value,
         fileout = ast.literal_eval(fileout)
     if isinstance(density, str):
         density = ast.literal_eval(density)
-    if col_rm_value is not None:
-        me = ('Error: --remove-columns must be a float between 0 and 1\n'
-              'Exiting program')
-        if col_rm_value is not isinstance(col_rm_value, float):
-            print(me)
-        if col_rm_value > 1 or col_rm_value < 0:
-            print(me)
-        sys.exit(-1)
     if isinstance(arg1, pd.DataFrame):
         pre_parsed_psm = arg1
     else:
@@ -170,22 +163,22 @@ def run_data_filter(arg1, density, fileout, outname, exclude, sn_value,
         line = f'program: {script_path}\ninput: {os.path.abspath(arg1)}\n'
         line += f'density: {str(density)}\nwriteout: {str(fileout)}'
         output.write(line)
-
-    filt_df.to_csv('Filtered1_df.tsv', sep='\t', index=False)
+    if fileout:
+        filt_df.to_csv('Filtered1_df.tsv', sep='\t', index=False)
 
     dfs_to_compare = [(pre_parsed_psm.copy(deep=True), 'pre'),
                       (filt_df.copy(deep=True), 'post')]
-
     boxplots = dia.comparative_box_plots(dfs_to_compare, taginf, fileout)
     histoplots = dia.comparative_hist(dfs_to_compare, density, taginf)
     comp_plots = boxplots + histoplots
     my_plots = lopit_utils.pw_object_layout(comp_plots)[len(comp_plots)]
+    print('Rendering plots ...')
     _ = lopit_utils.rendering_figures(my_plots,
                                       'Comparative_plots.filter1.pdf')
     # *-*-* garbage collection *-*-* #
     collected = gc.collect()
     print(f'{collected} garbage objects were collected')
-    processed_df = missing_values_calculation(filt_df, col_rm_value)
+    processed_df = missing_values_calculation(filt_df, fileout)
     os.chdir('..')
     print('*** - Filtering  workflow has finished -***\n')
     return processed_df

@@ -9,11 +9,13 @@ import pathlib
 import numpy as np
 import pandas as pd
 from PIL import Image
+from functools import reduce
 import plotly.express as px
 from itertools import product
+from collections import Counter
 import matplotlib.pyplot as plt
 from pypdf import PdfMerger, PdfReader
-from SVM_KNN_RF_clustering import write_mydf
+# from SVM_KNN_RF_clustering import write_mydf
 from itertools import combinations, zip_longest
 from matplotlib.backends.backend_pdf import PdfPages
 from dash import Dash, dcc, html, Input, Output, callback
@@ -40,6 +42,8 @@ colors = ['gold', '#fb9a99', '#e31a1c', '#a6cee3', '#1f78b4',
 #   --- patch for bug in large pivot table function  ---   #
 
 #   ---
+
+
 
 def name_combos():
     digits = list(string.digits[1:])
@@ -296,9 +300,59 @@ def modifications_checkup(df):
     modif = [i for i in set(x.tolist()) if i is True][0]
     return modif
 
+def compare_merge(df1, df2):
+    merged = pd.merge(df1.loc[:, ['tmp', 'Accession']],
+                      df2, left_on='tmp', right_on='Accession_orig',
+                      how='outer')
+    merged['Accession'] = merged.loc[
+        merged['Accession'] == np.nan, 'Accession'] = merged[
+        'Accession'].fillna(merged['Accession_orig'])
+    merged.drop(['tmp', 'Accession_orig'], axis=1, inplace=True)
+    return merged
 
-def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args, usecol):
 
+def accesion_checkup(df1, df2, ftype='marker'):
+    df1_accs = list(set(df1['Accession'].to_list()))
+    df2_accs = df2['Accession'].to_list()
+    intersection = set(df1_accs).intersection(df2_accs)
+    missing_acc = [v for v in df1_accs if v not in df2_accs]
+    # accessions and not accession-psm:
+    if intersection:
+        if missing_acc and ftype != 'accessory file':
+            print('There following accessions are missing from '
+                  f'{ftype}:\n', '\n'.join(missing_acc))
+            if ftype == 'marker':
+                print('Exiting program...')
+                sys.exit(-1)
+        return df2
+    else:
+        # checking if accessions are accession-psm
+        df1['tmp'] = df1['Accession'].apply(lambda x: x[0: x.rfind('_')])
+        df1_accs = list(set(df1['tmp'].to_list()))
+        df2_accs = df2['Accession'].to_list()
+        intersection = set(df1_accs).intersection(df2_accs)
+        df2.rename(columns={'Accession': 'Accession_orig'}, inplace=True)
+        # merge dfs using new names and preserving original source name when nan
+        if intersection:
+            if ftype == 'marker' and len(intersection) == len(df1_accs):
+                merged = compare_merge(df1.loc[:, ['tmp', 'Accession']], df2)
+                return merged
+            if ftype != 'marker':
+                if len(intersection) != len(df1_accs):
+                    print(f'There are accessions missing in the {ftype} file')
+                merged = compare_merge(df1.loc[:, ['tmp', 'Accession']], df2)
+                return merged
+        else:  # accessions between df1 and df2 does not intersect
+            print('There is no intersection between the two compared dfs')
+            print('saving compared dfs for debugging.\nExiting program...')
+            df1.loc[:, ['tmp', 'Accession']].to_csv(f'df1.partial.debug.tsv',
+                                                    sep='\t', index=False)
+            df2.to_csv(f'df2.full.{ftype}.debug.tsv', sep='\t', index=False)
+            sys.exit(-1)
+
+
+def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args,
+                    usecol, verbose):
     # dtype for each column is automatically recognized
     try:
         df = pd.read_csv(filein, sep='\t', header=0, engine='python',
@@ -347,7 +401,7 @@ def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args, usecol):
         return ndf
 
 
-def phenodata_prep(filein, outname, args):
+def phenodata_prep(filein, outname, args, verbosity):
     df = pd.read_csv(filein, sep=r'\t|\,', header=0, engine='python',
                      na_values=['NA', ''])
     df.columns = df.columns.str.replace('[ |.]', '.', regex=True)
@@ -377,7 +431,7 @@ def phenodata_prep(filein, outname, args):
     return df
 
 
-def proteins_prep(filein, file_out, search_engine, args):
+def proteins_prep(filein, file_out, search_engine, args, verbosity):
     df = pd.read_csv(filein, sep='\t', header=0, dtype='object',
                      na_values=['<NA>', ''])
     df.columns = df.columns.str.replace('[ |-]', '.', regex=True)
@@ -511,7 +565,7 @@ def eliminate_undesirable_cols(df):
     return df
 
 
-def df_merger(main_input, mf1, af2, outname):
+def df_merger(main_input, mf1, af2, outname, verbosity):
     main_df = pd.read_csv(main_input, sep='\t', header=0, dtype=object)
     if mf1 != '':
         markers_df = files_to_merge(mf1)
@@ -594,7 +648,7 @@ def basic_fig_parameters(df, x, y, size, color):
     return fig
 
 
-def figure_rendering(filein, x, y, size, color, dim, z=''):
+def figure_rendering(filein, x, y, size, color, dim, z='', verbosity=False):
     df = pd.read_csv(filein, sep='\t', header=0, engine='python',
                      encoding='utf-8')
     dim = dim.upper()
@@ -983,3 +1037,125 @@ def clusters_across_datasets(dfs_list):
     outname = 'Shared_clusters_across_dataset_comparisons.tsv'
     all_shared_clsts.to_csv(f'{outname}', sep='\t', index=False)
     return all_shared_clsts
+
+
+def write_mydf(dfs_list, outname, hdbscan, cutoff, accessory_file):
+    df = reduce(lambda left, right: pd.merge(left, right,
+                                             on='Accession',
+                                             how='left'), dfs_list)
+    fill_cols = ['SVM.prediction', 'KNN.prediction',
+                 'Random.forest.prediction', 'Naive.Bayes']
+
+    # compute shared predictions and prepare final df
+    pre_final_df = common_prediction(df, fill_cols, hdbscan, cutoff)
+    # merge accessory file if passed
+    if isinstance(accessory_file, pd.DataFrame):
+        acc_cols = [col for col in accessory_file.columns.to_list()
+                    if col != 'Accession']
+        shared_cols = [col for col in pre_final_df.columns.to_list()
+                       if col in acc_cols]
+        if len(shared_cols) != 0:
+            print(f'Merge will avoid shared columns {shared_cols} between '
+                  'master_df and accessory file.\n')
+            merge_cols = ['Accession'] + [col for col in acc_cols if
+                                          col not in shared_cols]
+            final_df = pd.merge(pre_final_df,
+                                accessory_file.loc[:, merge_cols],
+                                on='Accession', how='left')
+        else:
+            final_df = pd.merge(pre_final_df, accessory_file,
+                                on='Accession', how='left')
+    else:
+        final_df = pre_final_df
+
+    # write final df
+    if 'Dataset' in final_df.columns.to_list():
+        dataset = '_' + final_df['Dataset'].to_list()[0]
+    else:
+        dataset = ''
+    fpath = os.path.join(os.getcwd(), f'Final_df{dataset}.{outname}.'
+                                      f'Supervised.ML.tsv')
+    if outname != 'tagm_added':
+        final_df.to_csv(fpath, sep='\t', index=False)
+    return final_df
+
+
+def common_prediction(df, cols, hdbscan=False, cutoff=''):
+    ndf = df.copy(deep=True)
+    all_cols = ndf.columns.to_list()
+
+    if hdbscan is True:
+        if 'hdb_labels_euclidean_TMT_pred_marker' in all_cols:
+            cols = cols + ['hdb_labels_euclidean_TMT_pred_marker']
+        if 'hdb_labels_euclidean_TMT_pred_marker' in cols:
+            ml, size, sign = 'hdbscan', 5, '+hdbscan'
+        else:
+            ml, size, sign = '', 4, '+'
+    else:
+        # check if tagm predictions are available
+        tagm = list(set([x.split('.')[0] for x in all_cols if
+                         x.split('.')[0].startswith('tagm')]))
+        if tagm:
+            ml, size, sign = 'tagmap', 5, '+tagmap'
+            cols = cols + [f'tagm.map.allocation.cutoff_{cutoff}']
+        # calculate without hdbscan or tagm predictions
+        else:
+            ml, size, sign = '', 4, '+'
+
+    ndf.set_index('Accession', inplace=True)
+    wdf = ndf.loc[:, cols]
+    dic1, dic2, dic3, dic4 = {}, {}, {}, {}
+    for acc in wdf.index:
+        y = wdf.loc[acc, :].values.flatten().tolist()
+        temp = sorted(Counter(y).items(), key=lambda x: x[1], reverse=True)
+        if len(temp) == 1:
+            dic1[acc] = temp[0][0]
+            dic2[acc] = temp[0][1]
+            if temp[0][1] >= 3:
+                if temp[0][1] >= 4:
+                    dic4[acc] = temp[0][0]
+                    dic3[acc] = temp[0][0]
+                else:
+                    if acc not in dic3.keys():
+                        dic3[acc] = temp[0][0]
+        elif 1 < len(temp) < size:
+            if temp[0][1] > temp[1][1]:
+                dic1[acc] = temp[0][0]
+                dic2[acc] = temp[0][1]
+                if temp[0][1] >= 3:
+                    if temp[0][1] >= 4:
+                        dic4[acc] = temp[0][0]
+                        dic3[acc] = temp[0][0]
+                    else:
+                        if acc not in dic3.keys():
+                            dic3[acc] = temp[0][0]
+            if size == 5:
+                if temp[0][1] == temp[1][1] == temp[2][1]:
+                    dic1[acc] = '|'.join([temp[0][0], temp[1][0], temp[2][0]])
+                    dic2[acc] = 0
+                elif temp[0][1] == temp[1][1]:
+                    dic1[acc] = '|'.join([temp[0][0], temp[1][0]])
+                    dic2[acc] = 0
+            elif size == 4:
+                if temp[0][1] == temp[1][1]:
+                    dic1[acc] = '|'.join([temp[0][0], temp[1][0]])
+                    dic2[acc] = 0
+        else:
+            dic1[acc] = 'unknown'
+            dic2[acc] = 0
+    if size == 5:
+        df['most.common.pred.SVM.KNN.RF.NB.hdbscan'] = df['Accession'].map(dic1)
+    else:
+        df['most.common.pred.SVM.KNN.RF.NB'] = df['Accession'].map(dic1)
+
+    complete = [f'most.common.pred.SVM.KNN.RF.NB.{ml}',
+                f'most.common.pred.supported.by{sign}',
+                f'best.pred.supported3{sign}marker',
+                f'best.pred.supported4{sign}marker']
+    dics = [dic1, dic2, dic3, dic4]
+
+    for col, dic in zip(complete, dics):
+        df[col] = df['Accession'].map(dic)
+        df[col] = df[col].fillna('unknown')
+    df[complete] = df.loc[:, complete].fillna('unknown')
+    return df

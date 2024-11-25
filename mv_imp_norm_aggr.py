@@ -85,18 +85,19 @@ def imputeknn(df, cols, k, exp):
     return knn_imp_cat
 
 
-def compare_df(df1, df2, cols, exp):
+def compare_df(df1, df2, cols, exp, verbosity):
     ndf1 = df1.loc[:, cols].copy(deep=True)
     ndf1.set_index('PSMs.Peptide.ID', inplace=True)
     ndf2 = df2.loc[:, cols].copy(deep=True)
     ndf2.set_index('PSMs.Peptide.ID', inplace=True)
     imp = ndf1.compare(ndf2)
-    imp.to_csv(f'Diff.imputation{exp}.tsv', sep='\t', index=True)
+    if verbosity:
+        imp.to_csv(f'Diff.imputation{exp}.tsv', sep='\t', index=True)
     return 'Done'
 
 
-
 #   ---  Data normalization   ---   ###
+
 
 
 def corr_by_peptide_amount(df1, df2):
@@ -151,6 +152,7 @@ def normalization(df):
 
     #   ---  PSMs aggregation   ---   ###
 
+
 def read_prot_class(filein, search_engine):
     df = pd.read_csv(filein, sep='\t', header=0, dtype='object',
                      na_values=['<NA>', ''])
@@ -185,6 +187,7 @@ def flatten(x):
         newx = 1*x
         return 1, newx
 
+
 def flatten_colnames(df):
     fun = '<lambda>'
     tmt = {k: k[0] for k in df.columns.to_list() if k[0].startswith('TMT')}
@@ -202,18 +205,19 @@ def flatten_colnames(df):
     return df
 
 
-def aggregation_split(df, col1, col2):
+def aggregation_split(df, col1, col2, verbosity):
     df[['Number.of.Proteins', col1]] = pd.DataFrame(df[col1].tolist(),
                                                     index=df.index)
     df[['Number.of.Peptides', col2]] = pd.DataFrame(df[col2].tolist(),
                                                     index=df.index)
     #   ---  eliminating column created in step above   ---   #
     df.reset_index(inplace=True)
-    df.to_csv('First_agg.tsv', sep='\t', index=False)
+    if verbosity:
+        df.to_csv('First_agg.tsv', sep='\t', index=False)
     return df
 
 
-def aggregation(df, dfprot, taginf):
+def aggregation(df, dfprot, taginf, verbosity):
     #   ---  columns to retain   ---   #
     regcol = df.filter(regex='.per.Protein.Group').columns.to_list()
     tmt = df.filter(regex='^TMT').columns.to_list()
@@ -240,16 +244,17 @@ def aggregation(df, dfprot, taginf):
     agg_df = flatten_colnames(agg_df)
 
     #   ---  splitting the aggregated columns by their flatten tuple  ---   #
-    split_df = aggregation_split(agg_df, keep[4], keep[2])
+    split_df = aggregation_split(agg_df, keep[4], keep[2], verbosity)
     newnames = {'Master.Protein.Accessions': 'Accession',
                 'Master.Protein.Descriptions': 'Description',
                 'Sequence': 'Peptide.Sequences'}
     split_df.rename(columns=newnames, inplace=True)
-    merged = pd.merge(split_df, dfprot, on='Accession', how='inner')
-
+    # merged = pd.merge(split_df, dfprot, on='Accession', how='inner')
+    merged = guess_data_type(split_df, dfprot)
     #   ---   combine feature by median   ---   #
     merged.sort_values('Experiment', ascending=True)
-    merged.to_csv('median.tsv', sep='\t', index=False)
+    if verbosity:
+        merged.to_csv('median.tsv', sep='\t', index=False)
     if len(set(merged.Experiment.tolist())) > 1:
         _ = venn(merged)
     renormalized = normalization(merged)
@@ -258,8 +263,7 @@ def aggregation(df, dfprot, taginf):
     return renormalized
 
 
-
-def merge_and_irs(exp, df_list):
+def merge_and_irs(exp, df_list, verbosity):
     #  --- plex aggregation by psms   #
     merged_dup = df_list[0].merge(df_list[1], left_on='Accession',
                                   right_on='Accession', how='inner')
@@ -270,12 +274,13 @@ def merge_and_irs(exp, df_list):
     #  --- irs correction   ---   #
     irs_df = internal_reference_scaling(merged, tmt, bridge_cols)
     irs_df['Experiment'] = exp
-    irs_df.to_csv(f'irs_corrected_{exp}.tsv', sep='\t', index=True)
+    if verbosity:
+        irs_df.to_csv(f'irs_corrected_{exp}.tsv', sep='\t', index=True)
     return irs_df
 
 
-def reconstitute_plexes(exp, dfs_list):
-    irs_df = merge_and_irs(exp, dfs_list)
+def reconstitute_plexes(exp, dfs_list, verbosity):
+    irs_df = merge_and_irs(exp, dfs_list, verbosity)
     toadd = irs_df.filter(regex='PSMs.per.Protein.Group').columns.to_list()
     newcol = 'Number.of.PSMs.per.Protein.Group'
     irs_df[newcol] = irs_df.loc[:, toadd].sum(axis=1)
@@ -285,7 +290,8 @@ def reconstitute_plexes(exp, dfs_list):
                   if col not in kept_tmt]
     sorted_cols = sorted_channels(kept_tmt, other_cols)
     irs_df_sorted = irs_df.loc[:, sorted_cols].copy(deep=True)
-    irs_df_sorted.to_csv(f'Normalized.df.agg.post-irs-{exp}.tsv', sep='\t')
+    if verbosity:
+        irs_df_sorted.to_csv(f'Normalized.df.agg.post-irs-{exp}.tsv', sep='\t')
     return irs_df_sorted
 
 
@@ -461,7 +467,7 @@ def validate_imputation_params(tmt_by_exp, mnar_name, method1,
     return validated_dic
 
 
-def imputation(odf, imp_params):
+def imputation(odf, imp_params, verbosity):
     sel_cols = ['Experiment'] + list(odf.filter(regex=r'^TMT.*\d+').columns)
     acc_info = odf.loc[:, ~odf.columns.isin(sel_cols)]
     dfs = []
@@ -495,9 +501,10 @@ def imputation(odf, imp_params):
         if knn_list:
             imputed2 = imputeknn(imputed1, knn_list, 10, exp)
             mycols = ['Experiment', 'PSMs.Peptide.ID'] + mindet_list + knn_list
-            _ = compare_df(sdf, imputed2, mycols, exp)
-            imputed2.to_csv(f'imputed.{exp}.MinDet-knn.tmp.tsv',
-                            sep='\t', index=False)
+            _ = compare_df(sdf, imputed2, mycols, exp, verbosity)
+            if verbosity:
+                imputed2.to_csv(f'imputed.{exp}.MinDet-knn.tmp.tsv',
+                                sep='\t', index=False)
             dfs.append(imputed2)
 
         else:
@@ -511,9 +518,37 @@ def imputation(odf, imp_params):
     return new_df
 
 
+def channel_exists(chan_by_exp, req_chan):
+    print('Checking that requested channels exist in experiments')
+    collect = {}
+    req_chans = {k: req_chan[key] for key in req_chan.keys()
+                 for k in check_key(key)}
+    for key in req_chans.keys():
+        if 'remainder' in req_chans[key]:
+            reqs = [v for v in req_chans[key] if v != 'remainder']
+            difference = set(reqs).difference(chan_by_exp[key])
+        else:
+            difference = set(req_chans[key]).difference(chan_by_exp[key])
+        if difference:
+            collect[key] = list(difference)
+    if collect:
+        for k in collect.keys():
+            print(f'Existing channels in {k} are:\n', chan_by_exp[k])
+            print('Requested channel(s) for MV imputation but missing '
+                  f'from {k} is/are:\n', collect[k])
+            print('Exiting program...')
+            sys.exit(-1)
+    return 'done'
+
+
 def param_verification(psms, chan_mnar, mnar, chan_mar, mar):
     print('Checking imputation parameters...')
     tmt_by_exp = channels_by_exp(psms)
+    # verify if chan_nmar are exist in df
+    verify_chan_mnar = channel_exists(tmt_by_exp, chan_mnar)
+    # verify if chan_mar are exist in df
+    verify_chan_mar = channel_exists(tmt_by_exp, chan_mar)
+    # continue workflow
     method_mnar_dic = declared_exp_tmt(chan_mnar, tmt_by_exp, mnar)
     method_mar_dic = declared_exp_tmt(chan_mar, tmt_by_exp, mar)
     imputation_params = validate_imputation_params(tmt_by_exp, mnar,
@@ -527,13 +562,14 @@ def get_boxplot(df, taginf, outname, mytitle, psms=True, reconstituted=False):
         boxplot_path = dia.catplot(df, taginf, mytitle)
     else:
         mypivot_df = dia.large_pivot_tab(df, taginf, outname,
-                                         True, psms, reconstituted)
+                                         True, psms,
+                                         reconstituted)
         boxplot_path = dia.catplot(mypivot_df, taginf, mytitle)
 
     return boxplot_path
 
 
-def df_splitter(odf, reconstitute):
+def df_splitter(odf, reconstitute, verbosity):
     if reconstitute is not None:
         inv_dic = {v: k for k in reconstitute.keys() for v in reconstitute[k]}
         exps_reconst = [v.strip() for val in reconstitute.values() for v in val]
@@ -562,9 +598,11 @@ def df_splitter(odf, reconstitute):
                 del sdg[psms]
             donot_reconst_dfs[exp] = sdg
     # writing aggregated pre-irs dfs
-    for i in reconst_dfs.keys():
-        for v in reconst_dfs[i]:
-            v.to_csv(v.to_csv(f'Normalized.df.agg.pre-irs-{i}.tsv', sep='\t'))
+    if verbosity:
+        for i in reconst_dfs.keys():
+            for v in reconst_dfs[i]:
+                v.to_csv(v.to_csv(f'Normalized.df.agg.pre-irs-{i}.tsv',
+                                  sep='\t'))
     return donot_reconst_dfs, reconst_dfs
 
 
@@ -609,19 +647,36 @@ def plots_for_irs_correction(working_plexes):
     return figs_paths
 
 
-def reconstitution_manager(odf, reconstitute):
-    no_recons_dic, reconst_dic = df_splitter(odf, reconstitute)
+def reconstitution_manager(odf, reconstitute, verbosity):
+    no_recons_dic, reconst_dic = df_splitter(odf, reconstitute, verbosity)
     reconstituted_plexes_dic = {}
     for key in reconst_dic.keys():
-        working_plex = reconstitute_plexes(key, reconst_dic[key])
+        working_plex = reconstitute_plexes(key, reconst_dic[key], verbosity)
         reconstituted_plexes_dic[key] = working_plex
     print('****** Dataframe reconstitution has finished')
     return no_recons_dic, reconstituted_plexes_dic
 
 
+def guess_data_type(df1, df2):  # guessing if accession only or accession-psm
+    df1_accs = list(set(df1['Accession'].to_list()))
+    df2_accs = df2['Accession'].to_list()
+    intersection = set(df1_accs).intersection(df2_accs)
+    if len(intersection) == len(df1_accs): # df1 must be encompassed in df2
+        merged = pd.merge(df1, df2, on='Accession', how='inner')
+        return merged
+    else:
+        df1['tmp'] = df1['Accession'].apply(lambda x: x[0: x.rfind('_')])
+        df2.rename(columns={'Accession': 'Accession_orig'}, inplace=True)
+        merged = pd.merge(df1, df2, left_on='tmp', right_on='Accession_orig',
+                          how='inner')
+        merged.drop(['tmp', 'Accession_orig'], axis=1, inplace=True)
+        return merged
+
+
+
 def imp_agg_normalize(psmfile, pheno_file, protein_file,
                       fileout, cmds, mnar, channels_mnar,
-                      mar, channels_mar, reconstitute):
+                      mar, channels_mar, reconstitute, verbosity):
     print('\n*** - Beginning of mv imputation and df aggregation workflow - ***')
     #   ---   Creating main dir   ---   #
     mydir = lopit_utils.create_dir('Step4_',
@@ -654,7 +709,7 @@ def imp_agg_normalize(psmfile, pheno_file, protein_file,
     # print('Imputation parameters are:\n', imputation_params)
     #   ---   mv imputation   ---   #
     print('Imputation of missing values')
-    imputed_df = imputation(pre_parsed_psm, imputation_params)
+    imputed_df = imputation(pre_parsed_psm, imputation_params, verbosity)
 
     # TMT columns need to be sorted **************************************************************
 
@@ -683,11 +738,15 @@ def imp_agg_normalize(psmfile, pheno_file, protein_file,
     #  boxplot for normalization after correction
     g2 = get_boxplot(normalized, taginf, 'my_pivot.2',
                      'TagAbunbyExp.norm')
-    normalized.to_csv('Main_normalized.df.preagg.tsv', sep='\t', index=False)
+    if verbosity:
+        normalized.to_csv('Main_normalized.df.preagg.tsv', sep='\t',
+                          index=False)
 
     #   ---   psms aggregation   ---   #
-    aggregated_df = aggregation(normalized, pre_parsed_prots, taginf)
-    aggregated_df.to_csv('Main_normalized.df.agg.tsv', sep='\t', index=False)
+    aggregated_df = aggregation(normalized, pre_parsed_prots, taginf, verbosity)
+    if verbosity:
+        aggregated_df.to_csv('Main_normalized.df.agg.tsv', sep='\t',
+                             index=False)
 
     #   ---   boxplot post-aggregation and pre IRS correction   ---   #
 
@@ -695,11 +754,13 @@ def imp_agg_normalize(psmfile, pheno_file, protein_file,
                      'TagAbunbyExp.norm.agg.pre-IRS')
 
     plots1 = [g1, g2]
-    print('plots1', plots1)
+
     _ = lopit_utils.merge_images(plots1, f'Comparative_boxplots')
 
     # --- reconstitute experiment plexes if requested
-    non_rec, reconst = reconstitution_manager(aggregated_df, reconstitute)
+    non_rec, reconst = reconstitution_manager(aggregated_df,
+                                              reconstitute,
+                                              verbosity)
 
     #   ---   dic containing all dfs by exp   ---   #
     all_dfs_dic = {**non_rec, **reconst}

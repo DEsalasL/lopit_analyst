@@ -2,6 +2,7 @@ import glob
 import os
 import re
 import sys
+import lopit_utils
 import numpy as np
 import pandas as pd
 from sklearn import svm
@@ -31,10 +32,10 @@ sml_cols = ['SVM.prediction', 'KNN.prediction', 'Random.forest.prediction',
             'best.pred.supported3+', 'best.pred.supported4+']
 
 
-def predef_message(ml_method, acc, req_acc):
+def predef_message(ml_method, acc, req_acc, dataset):
     m = (f'******** WARNING  {ml_method} ********\n'
-         f'Accuracy is {acc} which is BELOW the requested accuracy '
-         f'threshold of {req_acc}\n'
+         f'Accuracy for {dataset} is {acc}, which is BELOW the requested '
+         f'accuracy threshold of {req_acc}\n'
          '*************************\n')
     print(m)
     return 'Done'
@@ -227,7 +228,7 @@ def calculate_probabilities(model, pred_labels, x_train, x_test,
 
 
 def svm_classification(df, train_size, accuracy_threshold,
-                       smote_type, neighbors):
+                       smote_type, neighbors, dataset, verbosity):
     # create training and test sets
     x_train, x_test, y_train, y_test = my_train_test_split(df,
                                                            train_size,
@@ -255,15 +256,16 @@ def svm_classification(df, train_size, accuracy_threshold,
     # problem might be related to the small dataset size. see predict_proba
     # SVC documentation
 
-    accuracy = report(y_test, pred_labels, 'SVM')
+    accuracy = report(y_test, pred_labels, 'SVM', verbosity)
     # predict classification for whole dataset
     ndf = prediction_on_data(model, tmt_data, tmt_label,
                              'SVM.prediction')
     #  ---
     if accuracy < accuracy_threshold:
-        _ = predef_message('SVM', accuracy, accuracy_threshold)
+        _ = predef_message('SVM', accuracy, accuracy_threshold,
+                           dataset)
     else:
-        print(f'***   SVM estimated accuracy is {accuracy}   ***')
+        print(f'***   SVM estimated accuracy for {dataset} is {accuracy}   ***')
     return ndf
 
 
@@ -301,7 +303,7 @@ def write_xls(prediction_type, df1, df2):
         return 'Done'
 
 
-def report(y_test, pred_labels, prediction_type):
+def report(y_test, pred_labels, prediction_type, verbosity):
     # 'confusion matrix by classes
     cf_matrix = multilabel_confusion_matrix(y_test, pred_labels,
                                             labels=y_test)
@@ -323,12 +325,13 @@ def report(y_test, pred_labels, prediction_type):
     class_report = classification_report(y_test, pred_labels, zero_division=0)
     report_df = format_report(class_report)
     accuracy = accuracy_score(y_test, pred_labels)
-    _ = write_xls(prediction_type, cf_matrix_df, report_df)
+    if verbosity:
+        _ = write_xls(prediction_type, cf_matrix_df, report_df)
     return accuracy
 
 
 def knn_classification(df, train_size, accuracy_threshold,
-                       smote_type, neighbors):
+                       smote_type, neighbors, dataset, verbosity):
     # create training and test sets
     x_train, x_test, y_train, y_test = my_train_test_split(df,
                                                            train_size,
@@ -351,20 +354,21 @@ def knn_classification(df, train_size, accuracy_threshold,
                                                    weights='uniform'))
     knn_model.fit(x_train, y_train)
     pred = knn_model.predict(x_test)
-    accuracy = report(y_test, pred, 'KNN')
+    accuracy = report(y_test, pred, 'KNN', verbosity)
     # predict classification for whole dataset
     ndf = prediction_on_data(knn_model, tmt_data, tmt_label,
                              'KNN.prediction')
     #  ---
     if accuracy < accuracy_threshold:
-        _ = predef_message('KNN', accuracy, accuracy_threshold)
+        _ = predef_message('KNN', accuracy, accuracy_threshold,
+                           dataset)
     else:
-        print(f'***   KNN estimated accuracy is {accuracy}   ***')
+        print(f'***   KNN estimated accuracy for {dataset} is {accuracy}   ***')
     return ndf
 
 
 def random_forest_classification(df, train_size, accuracy_threshold,
-                                 smote_type, neighbors):
+                                 smote_type, neighbors, dataset, verbosity):
     # create training and test sets
     x_train, x_test, y_train, y_test = my_train_test_split(df,
                                                            train_size,
@@ -372,27 +376,28 @@ def random_forest_classification(df, train_size, accuracy_threshold,
                                                            neighbors)
     tmt_data, tmt_label = data_for_prediction(df)
     # best params: the algorith kept failing due to string to float in markers.
-    # Hence, it is hyperparemeter tuning is not implemented for rf
+    # Hence, hyperparemeter tuning is not implemented for rf
     #  define the model
     rf = make_pipeline(StandardScaler(),
                        RandomForestClassifier())
     rf.fit(x_train, y_train)
     pred = rf.predict(x_test)
-    accuracy = report(y_test, pred, 'Random_forest')
+    accuracy = report(y_test, pred, 'Random_forest', verbosity)
     # predict classification for whole dataset
     ndf = prediction_on_data(rf, tmt_data, tmt_label,
                              'Random.forest.prediction')
     #  ---
     if accuracy < accuracy_threshold:
         _ = predef_message('Random Forest',
-                           accuracy, accuracy_threshold)
+                           accuracy, accuracy_threshold, dataset)
     else:
-        print(f'***   Random Forest estimated accuracy is {accuracy}   ***')
+        print(f'***   Random Forest estimated accuracy for {dataset} is '
+              f'{accuracy}   ***')
     return ndf
 
 
 def naive_bayes_classifier(df, train_size, accuracy_threshold,
-                           smote_type, neighbors):
+                           smote_type, neighbors, dataset, verbosity):
     # create training and test sets
     x_train, x_test, y_train, y_test = my_train_test_split(df,
                                                            train_size,
@@ -405,16 +410,17 @@ def naive_bayes_classifier(df, train_size, accuracy_threshold,
     gnb = GaussianNB(var_smoothing=best_params['var_smoothing'])
     gnb.fit(x_train, y_train)
     pred = gnb.predict(x_test)
-    accuracy = report(y_test, pred, 'Naive_Bayes')
+    accuracy = report(y_test, pred, 'Naive_Bayes', verbosity)
     # predict classification for whole dataset
     ndf = prediction_on_data(gnb, tmt_data, tmt_label,
                              'Naive.Bayes')
     # ---
     if accuracy < accuracy_threshold:
         _ = predef_message('Naive Bayes',
-                           accuracy, accuracy_threshold)
+                           accuracy, accuracy_threshold, dataset)
     else:
-        print(f'***   Naive Bayes estimated accuracy is {accuracy}   ***')
+        print(f'***   Naive Bayes estimated accuracy for {dataset} '
+              f'is {accuracy}   ***')
     return ndf
 
 
@@ -455,224 +461,150 @@ def changing_preexisting_colnames(df, markers_info):
             return merged_df
 
 
-def common_prediction(df, cols, hdbscan=False, cutoff=''):
-    ndf = df.copy(deep=True)
-    all_cols = ndf.columns.to_list()
-
-    if hdbscan is True:
-        if 'hdb_labels_euclidean_TMT_pred_marker' in all_cols:
-            cols = cols + ['hdb_labels_euclidean_TMT_pred_marker']
-        if 'hdb_labels_euclidean_TMT_pred_marker' in cols:
-            ml, size, sign = 'hdbscan', 5, '+hdbscan'
-        else:
-            ml, size, sign = '', 4, '+'
-    else:
-        # check if tagm predictions are available
-        tagm = list(set([x.split('.')[0] for x in all_cols if
-                         x.split('.')[0].startswith('tagm')]))
-        if tagm:
-            ml, size, sign = 'tagmap', 5, '+tagmap'
-            cols = cols + [f'tagm.map.allocation.cutoff_{cutoff}']
-        # calculate without hdbscan or tagm predictions
-        else:
-            ml, size, sign = '', 4, '+'
-
-    ndf.set_index('Accession', inplace=True)
-    wdf = ndf.loc[:, cols]
-    dic1, dic2, dic3, dic4 = {}, {}, {}, {}
-    for acc in wdf.index:
-        y = wdf.loc[acc, :].values.flatten().tolist()
-        temp = sorted(Counter(y).items(), key=lambda x: x[1], reverse=True)
-        if len(temp) == 1:
-            dic1[acc] = temp[0][0]
-            dic2[acc] = temp[0][1]
-            if temp[0][1] >= 3:
-                if temp[0][1] >= 4:
-                    dic4[acc] = temp[0][0]
-                    dic3[acc] = temp[0][0]
-                else:
-                    if acc not in dic3.keys():
-                        dic3[acc] = temp[0][0]
-        elif 1 < len(temp) < size:
-            if temp[0][1] > temp[1][1]:
-                dic1[acc] = temp[0][0]
-                dic2[acc] = temp[0][1]
-                if temp[0][1] >= 3:
-                    if temp[0][1] >= 4:
-                        dic4[acc] = temp[0][0]
-                        dic3[acc] = temp[0][0]
-                    else:
-                        if acc not in dic3.keys():
-                            dic3[acc] = temp[0][0]
-            if size == 5:
-                if temp[0][1] == temp[1][1] == temp[2][1]:
-                    dic1[acc] = '|'.join([temp[0][0], temp[1][0], temp[2][0]])
-                    dic2[acc] = 0
-                elif temp[0][1] == temp[1][1]:
-                    dic1[acc] = '|'.join([temp[0][0], temp[1][0]])
-                    dic2[acc] = 0
-            elif size == 4:
-                if temp[0][1] == temp[1][1]:
-                    dic1[acc] = '|'.join([temp[0][0], temp[1][0]])
-                    dic2[acc] = 0
-        else:
-            dic1[acc] = 'unknown'
-            dic2[acc] = 0
-    if size == 5:
-        df['most.common.pred.SVM.KNN.RF.NB.hdbscan'] = df['Accession'].map(dic1)
-    else:
-        df['most.common.pred.SVM.KNN.RF.NB'] = df['Accession'].map(dic1)
-
-    complete = [f'most.common.pred.SVM.KNN.RF.NB.{ml}',
-                f'most.common.pred.supported.by{sign}',
-                f'best.pred.supported3{sign}marker',
-                f'best.pred.supported4{sign}marker']
-    dics = [dic1, dic2, dic3, dic4]
-
-    for col, dic in zip(complete, dics):
-        df[col] = df['Accession'].map(dic)
-        df[col] = df[col].fillna('unknown')
-    df[complete] = df.loc[:, complete].fillna('unknown')
-    return df
-
-
-def handling_markers(odf, markers_checked):
-    if isinstance(pd.DataFrame, markers_checked):
-        df = changing_preexisting_colnames(odf, markers_checked)
-    else:
-        df = odf
-    return df
-
-
 def supervised_clustering(directory, odf, markers_df, train_size,
                           accuracy_threshold, smote_type, neighbors,
-                          outname, accessory_file):
+                          outname, accessory_file, verbosity):
+    # combination
+    comb = os.path.split(directory)[-1]
     # create and move into new directory
     try:
         os.mkdir(directory)
     except:
         print('Directory already exists')
         pass
+
+    dataset = os.path.split(directory)[-1]
+    print(dataset)
     os.chdir(directory)
     # sml classification
     print('Beginning of supervised learning classification ...')
+    if isinstance(markers_df, pd.DataFrame):
+        df = marker_detection(odf, markers_df)
+    else:
+        df = marker_detection(odf, markers_df[comb])
 
-    df = marker_detection(odf, markers_df)
     svm_df = svm_classification(df, train_size, accuracy_threshold, smote_type,
-                                neighbors)
+                                neighbors, dataset, verbosity)
     knn_df = knn_classification(df, train_size, accuracy_threshold, smote_type,
-                                neighbors)
+                                neighbors, dataset, verbosity)
     randomf_df = random_forest_classification(df, train_size,
                                               accuracy_threshold, smote_type,
-                                              neighbors)
+                                              neighbors, dataset, verbosity)
     nb_df = naive_bayes_classifier(df, train_size, accuracy_threshold,
-                                   smote_type, neighbors)
+                                   smote_type, neighbors, dataset, verbosity)
     reconst_df = reduce(lambda left, right: pd.merge(left, right,
                                                      on='Accession',
                                                      how='outer'),
                         [svm_df, knn_df, randomf_df, nb_df])
     #
-    _ = wrapping_up(df, reconst_df, markers_df, outname, accessory_file)
+    acc_file = lopit_utils.accesion_checkup(odf, accessory_file,
+                                            ftype='accessory file')
+    if isinstance(markers_df, pd.DataFrame):
+        _ = wrapping_up(df, reconst_df, markers_df, outname, acc_file)
+    else:
+        _ = wrapping_up(df, reconst_df, markers_df[comb], outname, acc_file)
+
+    # _ = wrapping_up(df, reconst_df, markers_df, outname, acc_file)
     return 'Done'
 
 
-def write_mydf(dfs_list, outname, hdbscan, cutoff, accessory_file):
-    df = reduce(lambda left, right: pd.merge(left, right,
-                                             on='Accession',
-                                             how='left'), dfs_list)
-    fill_cols = ['SVM.prediction', 'KNN.prediction',
-                 'Random.forest.prediction', 'Naive.Bayes']
-
-    # compute shared predictions and prepare final df
-    pre_final_df = common_prediction(df, fill_cols, hdbscan, cutoff)
-    # merge accessory file if passed
-    if isinstance(accessory_file, pd.DataFrame):
-        acc_cols = [col for col in accessory_file.columns.to_list()
-                    if col != 'Accession']
-        shared_cols = [col for col in pre_final_df.columns.to_list()
-                       if col in acc_cols]
-        if len(shared_cols) != 0:
-            print(f'Merge will avoid shared columns {shared_cols} between '
-                  'master_df and accessory file.\n')
-            merge_cols = ['Accession'] + [col for col in acc_cols if
-                                          col not in shared_cols]
-            final_df = pd.merge(pre_final_df,
-                                accessory_file.loc[:, merge_cols],
-                                on='Accession', how='left')
-        else:
-            final_df = pd.merge(pre_final_df, accessory_file,
-                                on='Accession', how='left')
-    else:
-        final_df = pre_final_df
-
-    # write final df
-    if 'Dataset' in final_df.columns.to_list():
-        dataset = '_' + final_df['Dataset'].to_list()[0]
-    else:
-        dataset = ''
-    fpath = os.path.join(os.getcwd(), f'Final_df{dataset}.{outname}.'
-                                      f'Supervised.ML.tsv')
-    if outname != 'tagm_added':
-        final_df.to_csv(fpath, sep='\t', index=False)
-    return final_df
-
-
-def marker_checkup(entry, balancing_method):
+def marker_checkup(entry, balancing_method, mtype, avail_dirs):
     if entry is not None and os.path.isfile(entry):
         markers_map = pd.read_csv(entry, sep='\t', header=0)
         cnames = markers_map.columns.to_list()
-        if 'Accession' not in cnames or 'marker' not in cnames:
-            print('marker file does not contain a column identified '
-                  'as Accession or marker, or both')
-            sys.exit(-1)
-        markers_map.marker.replace(' |-', '_', regex=True, inplace=True)
-        vals = list(markers_map['marker'].unique())
-        vals.remove('unknown')
-        vals = natsorted(vals)
-        if len(vals) > 50:
-            print('Markers infile contains over 50 unique entries '
-                  '(markers + unknown).\nColor pallete for over 50 entries is '
-                  'not currently supported in lopit_utils (line 28).\n'
-                  'Exiting program...')
-            sys.exit(-1)
-        marker_labels = sorted(Counter(markers_map['marker']).items(),
-                               key=lambda x: x[1], reverse=False)
-        # major warning for the marker sizes
-        d = {tup[0]: tup[1] for tup in marker_labels}
-        l = {tup: d[tup] for tup in d.keys() if d[tup] < 6 if tup != 'unknown'}
-        if l:
-            m = ('***   WARNING   ***\n'
-                 f'There is/are not enough markers for a good prediction:\n{l}\n'
-                 'At least 6 markers by compartment should be declared.\n'
-                 'This program will continue if there are at least 3 markers \n'
-                 'per compartment but predictions may be highly '
-                 'inaccurate if data is largely unbalanced.\n'
-                 '*** end of WARNING   ***')
-            print(m)
-
-            if [l[i] for i in l.keys() if l[i] < 3]:  # if the list is not empty
-                m = f'Program exiting due to lack of markers:\n{l}'
-                print(m)
+        if mtype == 'global':
+            if 'Accession' not in cnames or 'marker' not in cnames:
+                print("Marker file does not contain a column identified as "
+                      "'Accession' or 'marker', or both. Exiting program ...")
+                sys.exit(-1)
         else:
-            msize = {tup: d[tup] for tup in d.keys() if d[tup] > 50
-                     if tup != 'unknown'}
-            if balancing_method != 'unbalanced' and len(msize) > 0:
-                m = ('***   WARNING   ***\n'
-                     f'There are more than 50 many markers at least in one '
-                     f'class/comparment\n{msize}\n\n'
-                     f'Note: \n'
-                     '1) The unbalanced method might be very inaccurate\n'
-                     '2) Specify the unbalanced method for classification\n'
-                     'Exiting program...\n'
-                     '*** end of WARNING   ***')
-                print(m)
+            if 'Accession' not in cnames:
+                print("Marker file does not contain a column identified "
+                      "as 'Accession'. Exiting program ...")
                 sys.exit(-1)
             else:
-                print('Markers were checked and program will continue')
-        return markers_map
+                cols = [col for col in cnames if col != 'Accession']
+                avail_cols = [os.path.split(d)[-1] for d in avail_dirs]
+                intersect = set(cols).intersection(set(avail_cols))
+                if (len(avail_cols) == len(cols) and
+                    len(intersect) == len(avail_cols)):
+                    pass
+                else:
+                    mc = ', '.join(cols)
+                    ec = ', '.join(avail_cols)
+                    print(f'Expected marker columns are:\n{ec}.\n'
+                          f'Declared marker columns are:\n{mc}. '
+                          f'Exiting program ...')
+                    sys.exit(-1)
     else:
         print('Declared marker file does NOT exist. Exiting program...')
         sys.exit(-1)
+
+    if mtype == 'global':
+        mmap = markers_format(markers_map, balancing_method, dataset='global')
+        return mmap
+    else:
+        dfs = {col: markers_map.loc[:, ['Accession', col]]
+               for col in markers_map.columns.to_list() if col != 'Accession'}
+        new_dic = {}
+        for combination in dfs.keys():
+            ren = dfs[combination].rename(columns={combination: 'marker'})
+            new_dic[combination] = ren
+
+        dfs_checked = {}
+        for combination in new_dic.keys():
+            mmap = markers_format(new_dic[combination], balancing_method,
+                                  dataset=combination)
+            dfs_checked[combination] = mmap
+        return dfs_checked
+
+
+def markers_format(markersmap, balancing_method, dataset):
+    markersmap.marker.replace(' |-', '_', regex=True, inplace=True)
+    vals = list(markersmap['marker'].unique())
+    vals.remove('unknown')
+    vals = natsorted(vals)
+    if len(vals) > 50:
+        print(f'marker type {dataset}\n:Markers infile contains over 50 unique '
+              f'entries (markers + unknown).\nColor pallete for over 50 entries'
+              'is not currently supported in lopit_utils.\n'
+              'Exiting program...')
+        sys.exit(-1)
+    marker_labels = sorted(Counter(markersmap['marker']).items(),
+                           key=lambda x: x[1], reverse=False)
+    # major warning for the marker sizes
+    d = {tup[0]: tup[1] for tup in marker_labels}
+    l = {tup: d[tup] for tup in d.keys() if d[tup] < 6 if tup != 'unknown'}
+    if l:
+        m = ('***   WARNING   ***\n'
+             f'Marker type {dataset}:\nThere are not enough markers for a '
+             f'good prediction:\n{l}\nAt least 6 markers by compartment should '
+             f'be declared. This program will continue if there are at least 3 '
+             'markers per compartment but predictions may be highly '
+             'inaccurate when data is largely unbalanced.\n'
+             '*******************')
+        print(m)
+
+        if [l[i] for i in l.keys() if l[i] < 3]:  # if the list is not empty
+            m = f'{dataset}:\n. Exit program due to lack of markers:\n{l}'
+            print(m)
+    else:
+        msize = {tup: d[tup] for tup in d.keys() if d[tup] > 50
+                 if tup != 'unknown'}
+        if balancing_method != 'unbalanced' and len(msize) > 0:
+            m = ('***   WARNING   ***\n'
+                 f'{dataset}:\nThere are more than 50 many markers at least '
+                 f'in one class/comparment\n{msize}\n'
+                 f'Note: \n'
+                 '1) The unbalanced method might be very inaccurate\n'
+                 '2) Specify the unbalanced method for classification\n'
+                 'Exiting program...\n'
+                 '*** end of WARNING   ***')
+            print(m)
+            sys.exit(-1)
+        else:
+            print(f'{dataset}:\nMarkers were checked and program will continue')
+    return markersmap
 
 
 def same_markers(df1, df2):
@@ -692,12 +624,13 @@ def marker_detection(masterdf, markerdf):
     if not markerdf.empty:
         markerdf = format_markers(markerdf)
         if 'marker' in masterdf.columns.to_list():
-            if same_markers(masterdf, markerdf):
+            marker_df = lopit_utils.accesion_checkup(masterdf, markerdf)
+            if same_markers(masterdf, marker_df):
                 del masterdf['marker']
             else:
                 masterdf.rename(columns={'marker': 'marker_old'},
                                 inplace=True)
-            new_master = pd.merge(masterdf, markerdf,
+            new_master = pd.merge(masterdf, marker_df,
                                   on='Accession', how='left')
             new_master['marker'].fillna('unknown', inplace=True)
             return new_master
@@ -731,7 +664,7 @@ def wrapping_up(master_df, fdf, marker_df, outname, accessory_file):
         # ffdf = write_mydf([master_df, fdf],
         #                   outname, hdbscan, '', accessory_file)
     # writing sml predictions:
-    ffdf = write_mydf([master_df, fdf], outname,
+    ffdf = lopit_utils.write_mydf([master_df, fdf], outname,
                       hdbscan, '', accessory_file)
 
     # return to main directory
@@ -739,9 +672,10 @@ def wrapping_up(master_df, fdf, marker_df, outname, accessory_file):
     return 'Done'
 
 
-def traverse(infile, fileout, f_identificator, markers_file, balance_method):
-    markers_df = marker_checkup(markers_file, balance_method)
-    # create a new dir to host the predicition outputs
+def traverse(infile, fileout, f_identificator, markers_file,
+             markers_type, balance_method, verbosity):
+
+    # create a new dir to host the prediction outputs
     cwd = os.getcwd()
     newdir = os.path.join(cwd, f'Step6__SML_predictions_{fileout}')
     if not os.path.isdir(newdir):
@@ -753,11 +687,24 @@ def traverse(infile, fileout, f_identificator, markers_file, balance_method):
     os.chdir(newdir)
     available_dirs = [f.path for f in os.scandir(infile) if f.is_dir()]
     print('available dirs', available_dirs)
+
+    # checking markers
+    if markers_type == 'global':
+        markers_df = marker_checkup(markers_file,
+                                    balance_method,
+                                    mtype='global',
+                                    avail_dirs='')
+    else:
+        markers_df = marker_checkup(markers_file,
+                                    balance_method,
+                                    mtype='by_combination',
+                                    avail_dirs=available_dirs)
+    #  create new dirs and respective dataframes
     target_files = {}
     missing_target_files = []
     for f in available_dirs:
         dir_name = os.path.split(f)[-1]
-        print('working on', dir_name)
+        print('---  working on  ---', dir_name)
         fpath = os.path.join(os.path.abspath(infile), f)
         fpath = os.path.join(fpath, f_identificator)
         tfiles = glob.glob(f'{fpath}*.tsv')
@@ -765,8 +712,8 @@ def traverse(infile, fileout, f_identificator, markers_file, balance_method):
         if len(tfiles) == 1:
             tf = tfiles[0]
         else:
-            m = (f'There are no files or there are multiple target files: '
-                 f'directory: {dir_name}, target {tfiles}.\n'
+            m = (f'There are no files or there are multiple target files '
+                 f'(ambiguous): directory: {dir_name}, target {tfiles}.\n'
                  f'The recognition_motif must be unambiguous.\n')
             print(m)
             sys.exit(-1)
@@ -774,9 +721,46 @@ def traverse(infile, fileout, f_identificator, markers_file, balance_method):
         if os.path.isfile(tf):
             infile = os.path.abspath(tf)
             dfin = pd.read_csv(infile, sep='\t', header=0)
+            #  check that loaded file corresponds to the correct combination
+            fbname = os.path.split(infile)[-1]
+            fbname = fbname.split('.')[0]
+            bname = fbname.split(f_identificator)[-1]
+            if bname != dir_name:
+                print(f'Dataset combination inferred from directory name '
+                      f'{dir_name} and input file {bname} do not match.'
+                      f'file identificator declared is: {f_identificator} '
+                      'Exiting program...')
+                sys.exit(-1)
+
             npath = os.path.join(newdir, dir_name)
-            target_files[npath] = changing_preexisting_colnames(dfin,
+            if isinstance(markers_df, pd.DataFrame):
+                # merge df and markers
+                dfin_markers_df = changing_preexisting_colnames(dfin,
                                                                 markers_df)
+            elif isinstance(markers_df, dict):
+                # check header is an existing combination in dir names
+                # merge combination_df with markers
+                try:
+                    dfin_markers_df = changing_preexisting_colnames(dfin,
+                                                                    markers_df[
+                                                                     bname])
+                except KeyError:
+                    header = ', '.join(markers_df.keys())
+                    print(f'Declared header in input file for {bname}'
+                          f'is incorrect. Columns available in input file are: '
+                          f'{header}. Exiting program...')
+                    sys.exit(-1)
+            else:
+                print('Something is wrong with the markers file:',
+                      markers_df)
+                sys.exit(-1)
+            # validate marker number by input dataset or combination:
+            print('Checking marker numbers by combination')
+            sliced_df = dfin_markers_df.loc[:, ['Accession', 'marker']]
+            _ = markers_format(sliced_df, balance_method, dataset=dir_name)
+            # integration of data in main dic after validation
+            target_files[npath] = dfin_markers_df
+
         else:
             missing_target_files.append(f)
         # os.chdir('..')
@@ -789,8 +773,8 @@ def traverse(infile, fileout, f_identificator, markers_file, balance_method):
     return target_files, markers_df
 
 
-def parallel_prediction(dic_with_dfs, balance_method, markers_df,
-                        afile):
+def parallel_prediction(dic_with_dfs, balance_method,
+                        markers_df, afile, verbosity):
     if afile is not None and os.path.isfile(afile):
         acc_file = pd.read_csv(afile, sep='\t', header=0)
     else:
@@ -804,7 +788,8 @@ def parallel_prediction(dic_with_dfs, balance_method, markers_df,
                                     accuracy_threshold=0.90,
                                     smote_type=balance_method,
                                     neighbors=2, outname='SML',
-                                    accessory_file=acc_file)
+                                    accessory_file=acc_file,
+                                    verbosity=verbosity)
                             for directory in dic_with_dfs.keys())
     return
 

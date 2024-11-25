@@ -14,7 +14,7 @@ import SVM_KNN_RF_clustering as sml
 
 
 #   Info  #
-__author__ = 'Dayana Salas-Leiva'
+__author__ = ['Dayana Salas-Leiva', 'Konstantin Barylyuk']
 __email__ = 'ds2000@cam.ac.uk'
 __version__ = '0.0.1'
 #   End Info   #
@@ -27,23 +27,27 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
                                            args['experiment_prefixes'],
                                            args['rename_columns'],
                                            args,
-                                           args['use_column'])
+                                           args['use_column'],
+                                           args['verbose'])
         return psms
     elif args['data_type'] == 'protein_data':
         proteins = lopit_utils.proteins_prep(args['input'],
                                              args['out_name'],
                                              args['search_engine'],
-                                             args)
+                                             args,
+                                             args['verbose'])
         return proteins
     elif args['data_type'] == 'protein_features':
         features = charms.sequence_properties(args['input'],
                                               args['out_name'],
-                                              args)
+                                              args,
+                                              args['verbose'])
         return features
     elif args['data_type'] == 'pheno_data':
         pheno_data = lopit_utils.phenodata_prep(args['input'],
                                                 args['out_name'],
-                                                args)
+                                                args,
+                                                args['verbose'])
         return pheno_data
     elif args['data_type'] == 'merge':
         if args['markers_file'] is None and args['additional_file'] is None:
@@ -54,12 +58,14 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
             merged_data = lopit_utils.df_merger(args['input'],
                                                 args['markers_file'],
                                                 args['additional_file'],
-                                                args['out_name'])
+                                                args['out_name'],
+                                                args['verbose'])
         if args['markers_file'] is None and args['additional_file'] is not None:
             merged_data = lopit_utils.df_merger(args['input'],
                                                 '',
                                                 args['additional_file'],
-                                                args['out_name'])
+                                                args['out_name'],
+                                                args['verbose'])
         return merged_data
 
     elif args['data_type'] == 'json_subset':
@@ -79,7 +85,8 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
                                                        args['size'],
                                                        args['color'],
                                                        args['figure_dimension'],
-                                                       args['z_axis'])
+                                                       args['z_axis'],
+                                                       args['verbose'])
         elif args['figure_dimension'].upper() == '2D':
             marker_loop = clt.create_marker_loop(args['perplexity'])
             try:
@@ -90,14 +97,16 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
                                                            args['y_axis'],
                                                            args['size'],
                                                            args['color'],
-                                                    args['figure_dimension'])
+                                                    args['figure_dimension'],
+                                                           args['verbose'])
             except:
                 interact_2d = lopit_utils.figure_rendering(args['input'],
                                                            args['x_axis'],
                                                            args['y_axis'],
                                                            args['size'],
                                                            args['color'],
-                                                    args['figure_dimension'])
+                                                    args['figure_dimension'],
+                                                           args['verbose'])
         else:
             a = args['figure_dimension']
             print(f'Unrecognized argument {a}')
@@ -110,7 +119,7 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
 
 def diagnosis(args):  # workflow 1- subparser: diagnostics
     density = False
-    write_out = True
+    write_out = args['verbose']
     diagnostic = dia.run_diagnostics(args['input'],
                                      args['accessory_data'],
                                      density,
@@ -121,19 +130,27 @@ def diagnosis(args):  # workflow 1- subparser: diagnostics
 
 def filter_raw_data(args):  # workflow 2- subparser: filtering
     density = False
-    write_out = True
     first_filtered_df = flt.run_data_filter(args['input'],
                                             density,
-                                            write_out,
+                                            args['verbose'],
                                             args['out_name'],
                                             args['exclude_taxon'],
-                                            args['signal_noise_threshold'],
-                                            args['remove_columns'])
+                                            args['signal_noise_threshold'])
     return first_filtered_df
 
 
 def mv_removal(args):  # workflow 3- subparser: mv_removal
-    mv_removed = mvr.run_heatmap_explorer(args['input'], args['out_name'])
+    if args['remove_columns'] is not None:  # boolean will become 0.0
+        try:
+            col_rm_threshold = float(args['remove_columns'])
+        except ValueError:
+            print(f"rm value is not a number: {args['remove_columns']}")
+            sys.exit(-1)
+        mv_removed = mvr.run_heatmap_explorer(args['input'], args['out_name'],
+                                              col_rm_threshold, args['verbose'])
+    else:
+        mv_removed = mvr.run_heatmap_explorer(args['input'], args['out_name'],
+                                              args['verbose'])
     return mv_removed
 
 
@@ -151,8 +168,8 @@ def impute_and_aggregate(args):  # workflow 4- subparser: imputation-aggregation
                                             args['channels_mnar'],
                                             args['mar'],
                                             args['channels_mar'],
-                                            args['interlaced_reconstitution']
-                                            )
+                                            args['interlaced_reconstitution'],
+                                            args['verbose'])
     return imp_aggregated
 
 
@@ -170,41 +187,48 @@ def cluster_data(args):  # workflow 5- subparser: clustering
                                     args['min_size'],
                                     args['min_sample'],
                                     args['n_neighbors'],
-                                    args['additional_file'])
+                                    args['additional_file'],
+                                    args['pca'],
+                                    args['feature_projection'],
+                                    args['projections_enabled'],
+                                    args['verbose'])
     return clusters
 
 
-def predict_compartments(args): # workflow 7 subparser sml
+def predict_compartments(args):  # workflow 7 subparser sml
     dfs_dic, markers = sml.traverse(args['input'],
                                     args['out_name'],
                                     args['recognition_motif'],
                                     args['markers_file'],
-                                    args['balancing_method'])
+                                    args['markers_type'],
+                                    args['balancing_method'],
+                                    args['verbose'])
 
     predictions = sml.parallel_prediction(dfs_dic,
                                           args['balancing_method'],
-                                          markers, args['additional_file'])
+                                          markers, args['additional_file'],
+                                          args['verbose'])
     return predictions
 
 
-def automated_analysis(args):  # workflow 6- subparser: full_analysis
-    first_filter_df = filter_raw_data(args)
-
-    # update input argument for mv removal
-    args.update({'input': first_filter_df})
-    mv_removed_df = mv_removal(args)
-
-    # update input argument for imputation and aggregation
-
-    args.update({'input': mv_removed_df})
-    imp_agg_df = impute_and_aggregate(args)
-
-    # update input argument for clustering
-
-    args.update({'input': imp_agg_df})
-    clusters = cluster_data(args)
-    _ = gc.collect()
-    return clusters
+# def automated_analysis(args):  # workflow 6- subparser: full_analysis
+#     first_filter_df = filter_raw_data(args)
+#
+#     # update input argument for mv removal
+#     args.update({'input': first_filter_df})
+#     mv_removed_df = mv_removal(args)
+#
+#     # update input argument for imputation and aggregation
+#
+#     args.update({'input': mv_removed_df})
+#     imp_agg_df = impute_and_aggregate(args)
+#
+#     # update input argument for clustering
+#
+#     args.update({'input': imp_agg_df})
+#     clusters = cluster_data(args)
+#     _ = gc.collect()
+#     return clusters
 
 
 #   ---   Execute program   ---   #
@@ -232,7 +256,7 @@ elif arguments['subparser_name'] == 'imputation_aggregation':
     _ = impute_and_aggregate(arguments)
 elif arguments['subparser_name'] == 'clustering':
     _ = cluster_data(arguments)
-elif arguments['subparser_name'] == 'full_analysis':
-    _ = automated_analysis(arguments)
+# elif arguments['subparser_name'] == 'full_analysis':
+#     _ = automated_analysis(arguments)
 elif arguments['subparser_name'] == 'sml':
     _ = predict_compartments(arguments)

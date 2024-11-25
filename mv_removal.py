@@ -48,7 +48,7 @@ def barplot(df, outname, suffix):
     ax0.set_xticklabels(ax0.get_xticklabels(), rotation=45)
     ax0.legend(loc='upper right', bbox_to_anchor=(1, 1), frameon=False)
     ax0.legend(fontsize='6', title_fontsize='10', markerscale=0.5)
-    return ax0
+    return ax0, nandf
 
 
 def misva(odf, outname, suffix):
@@ -60,7 +60,7 @@ def misva(odf, outname, suffix):
     ax0.set_title(msg)
 
     #   ---  Bar plot   ---   #
-    ax1 = barplot(df, outname, suffix)
+    ax1, nan_df = barplot(df, outname, suffix)
 
     #   ---  Correlation heatmap   ---   #
     newdf = df.loc[:, df.columns != 'Ave.SN']
@@ -79,7 +79,7 @@ def misva(odf, outname, suffix):
     msno.dendrogram(newdf, ax=ax3)
     ax3.set_title(f'MVals_cluster_tree - {outname}-{suffix}')
     # plt.savefig(f'{outname}.MVals_cluster_tree.pdf')
-    return ax0, ax1, ax2, ax3
+    return nan_df, ax0, ax1, ax2, ax3
 
 
 def PairGrid(odf, outname):
@@ -112,7 +112,7 @@ def scatterplot(df, cols, outname, suffix):
     return 'Done'
 
 
-def psm_with_mv(df):
+def psm_with_mv(df, verbosity):
     cols = ['Experiment', 'Master.Protein.Accessions',
             'Master.Protein.Descriptions', 'Min.NA.per.Protein.Group']
     ndf = df.loc[:, cols].copy(deep=True)
@@ -122,8 +122,9 @@ def psm_with_mv(df):
     xdf.reset_index(inplace=True)
     sub_df = xdf.loc[xdf['Min.NA.per.Protein.Group'].isin([True])]
     s = ndf.loc[sub_df['PSMs.Peptide.ID']]
-    s.to_csv('Protein.groups.with.PSMs.withMVs.tsv', sep='\t', index=True,
-             na_rep='NA')
+    if verbosity:
+        s.to_csv('Protein.groups.with.PSMs.withMVs.tsv', sep='\t', index=True,
+                  na_rep='NA')
     print(f'***   There are {s.shape[0]} protein groups with assigned '
           f'PSMs containing missing values   ***\n{s}')
     return 'Done'
@@ -242,7 +243,7 @@ def my_pie(n, kind, **kwargs):
 
 
 
-def pie_maker(odf, suffix):
+def pie_maker(odf, suffix, verbosity):
     df = odf.copy(deep=True)
     df.set_index('PSMs.Peptide.ID', inplace=True)
     print('Making pies')
@@ -255,7 +256,7 @@ def pie_maker(odf, suffix):
     min_pies = magic_pies(df, ['Experiment', 'Master.Protein.Accessions'],
                           'Min.NA.per.Protein.Group',
                           'Has.MV', title, 'Min', suffix)
-    _ = psm_with_mv(df)
+    _ = psm_with_mv(df, verbosity)
     title = 'Prot groups identified with a single PSM'
     nmin_pie = magic_pies(df, ['Experiment', 'Master.Protein.Accessions'],
                           'Number.of.PSMs.per.Protein.Group',
@@ -272,21 +273,36 @@ def pie_maker(odf, suffix):
     return 'Pies are ready'
 
 
-def misvals_removal(df, cols):
-    cond =((df['Min.NA.per.Peptide'] == 0) &
-           (df['Number.of.Missing.Values'] > 0))
+def mv_col_remover(odf, rem_dic):
+    df = odf.copy(deep=True)
+    dfs = []
+    for i, group in df.groupby('Experiment', as_index=False):
+        if i in rem_dic.keys():
+            print(f'Removing {rem_dic[i]} from {i} according to MVs threshold')
+            group.drop(rem_dic[i], axis=1, inplace=True)
+        dfs.append(group)
+    cat = pd.concat(dfs, axis=0)
+    return cat
+
+
+def misvals_removal(df, cols, cols_2_rem):
+    cond = ((df['Min.NA.per.Peptide'] == 0) &
+            (df['Number.of.Missing.Values'] > 0))
     ndf = df.loc[~cond].copy(deep=True)
-    na = 'Number.of.Missing.Values'
-    s1 = '.per.Protein.Group'
-    s2 = '.per.Peptide'
-    s3 = 'Number.of.PSMs'
-    todrop = [f'{na}', f'Min.NA{s1}', f'Max.NA{s1}', f'{s3}{s1}',
-              f'{s3}.with.MVs{s1}', 'Number.of.Peptides',
-              f'Min.NA{s2}', f'Max.NA{s2}', f'{s3}{s2}.Sequence',
-              f'{s3}.with.MVs{s2}.Sequence']
+    todrop = ['Number.of.Missing.Values',
+              'Number.of.PSMs.with.MVs.per.Protein.Group',
+              'Min.NA.per.Protein.Group', 'Max.NA.per.Protein.Group',
+              'Number.of.PSMs.per.Protein.Group',
+              'Number.of.Peptides', 'Min.NA.per.Peptide', 'Max.NA.per.Peptide',
+              'Number.of.PSMs.per.Peptide.Sequence',
+              'Number.of.PSMs.with.MVs.per.Peptide.Sequence']
     ndf.drop(todrop, axis=1, inplace=True)
     mv_removed = lopit_utils.nan(ndf, cols)
-    return mv_removed
+    if cols_2_rem:
+        mv_removed2 = mv_col_remover(mv_removed, cols_2_rem)
+        return mv_removed2
+    else:
+        return mv_removed
 
 
 def summary(df, kind):
@@ -318,24 +334,68 @@ def name_assigment(lst1, lst2, lst3, lst4, lst5, prefix):
     return 'Done'
 
 
-def misva_bulk_figures(df, suffix):
+def rm_col_format(col_rm_value):
+
+    if col_rm_value is not None:
+        if col_rm_value > 1.0 or col_rm_value < 0.0:
+            me = ('Error: --remove-columns must be a value between 0 and 1\n'
+                  'Exiting program')
+            print(me)
+            sys.exit(-1)
+        return col_rm_value
+
+
+def rm_collection(df, col_rm_value):
+    if col_rm_value != 0.0:
+        rm_val = col_rm_value * 100
+        rm_cols = df[df['Percentage'] > rm_val]
+        return rm_cols['TMT Channels'].to_list()
+    else:
+        return []
+
+
+def misva_bulk_figures(df, suffix, col_rm_thres):
     heatmaps, matrices, boxplots, hmc, tree = [], [], [], [], []
+    cols_2_rem = {}
     for i, group in df.groupby('Experiment', as_index=False):
         group.dropna(axis=1, how='all', inplace=True)
         tmt = list(group.filter(regex=r'^TMT.*\d+').columns)
         _ = scatterplot(group, tmt, i, suffix)  # do not append
         ndf, fig = heatmap(group, i, suffix)
         heatmaps.append(fig)
-        mv_matrix, mv_bxp, hmap, dendro = misva(ndf, i, suffix)
+        nan_df, mv_matrix, mv_bxp, hmap, dendro = misva(ndf, i, suffix)
+        to_rem = rm_collection(nan_df, col_rm_thres)  # columns to remove
+        if to_rem:  # if there are columns to remove
+            cols_2_rem[i] = to_rem
         boxplots.append(mv_bxp)
         hmc.append(hmap)
         tree.append(dendro)
     #  write files
     _ = name_assigment(heatmaps, matrices, boxplots, hmc, tree, suffix)
-    return 'Done'
+    return cols_2_rem
 
 
-def run_heatmap_explorer(file_in, outname):
+def accessions_by_psms(df, filepath):
+    # df by accession (protein level)
+    df.to_csv(f'{filepath}.protein.tsv', sep='\t', index=False)
+    # df by accession-psms sequence (peptide level)
+    ndf = df.copy(deep=True)
+    dfs = []
+    for i, g in ndf.groupby(['Master.Protein.Accessions', 'Sequence'],
+                            as_index=False):
+        d = {'Master.Protein.Accessions': 'Master.Protein.Accessions.original'}
+        g.rename(columns=d, inplace=True)
+        g['Master.Protein.Accessions'] = (g['Master.Protein.Accessions.original']
+                                          + '_' + g['Sequence'])
+        dfs.append(g)
+    cat = pd.concat(dfs)
+    cat.to_csv(f'{filepath}.peptide.tsv', sep='\t', index=False)
+    return df
+
+
+def run_heatmap_explorer(file_in, outname, col_rm_threshold,
+                         verbosity=False):
+
     print('\n*** - Beginning of mv removal workflow - ***\n')
     dfs_dir = lopit_utils.create_dir('Step3_',
                                      f'DF_ready_for_mv_imputation_{outname}')
@@ -362,8 +422,10 @@ def run_heatmap_explorer(file_in, outname):
     os.chdir(directory)
     #  drawing heat maps, barplots, scatterplots, pies, etc for missing values
     print('Preparing first batch of figures ...')
-    _ = misva_bulk_figures(newdf1, 'pre')  # use renamed df
-    _ = pie_maker(newdf, 'pre')  # use original deep copy
+    # use renamed df
+    rm_dic = misva_bulk_figures(newdf1, 'pre', col_rm_threshold)
+    # use original deep copy
+    _ = pie_maker(newdf, 'pre', verbosity)
 
     #   ---   df sizes before missing data removal  ---   #
     print(f'total PSMs in df before mv removal: {newdf.shape[0]}')
@@ -372,16 +434,15 @@ def run_heatmap_explorer(file_in, outname):
     # #   ---  removing missing values from original df (no imputation) ---   #
     my_outname = 'Filtered_df-ready-for-imputation'
     filepath = os.path.join(abpath, my_outname)
-    rdf = misvals_removal(newdf, tmt)
-
-    #  dataframe to be used for mv imputation in future steps
-    rdf.to_csv(f'{filepath}.tsv', sep='\t', index=False)
+    frdf = misvals_removal(newdf, tmt, rm_dic)
+    #  dataframes to be used for mv imputation in future steps
+    rdf = accessions_by_psms(frdf, filepath)
 
     #   ---  Checking left missing values  ---   #
     ndf = rdf.copy(deep=True)
     newrdf = ndf.loc[:, tmt + selcol].rename(columns={selcol[1]: 'Ave.SN'})
 
-    _ = misva_bulk_figures(newrdf, 'post')  # use renamed df
+    _ = misva_bulk_figures(newrdf, 'post', col_rm_threshold)  # use renamed df
     # do not do pies on new df-> they won't likely pass the conditionals in f(x)
 
     print('Preparing summaries for missing values before and after removal.')
