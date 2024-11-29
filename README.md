@@ -181,7 +181,7 @@ Excel files with labeling efficiency calculations by experiment.
 Parsed_PSM.headers.Pmar.tsv 
 
 # Step2 data basic filtering of low-quality PSMs
-This step will **retain** unambiguous PSMs, PSMs that match a unique protein group, PSMs of rank = 1, PSMs of rank = 1 by search engine, target and decoy PSMs matched to a given spectrum and ranked by their score PSMs identified for MS2-spectra, and PSMs with injection time < 50 ms. Simultaneously, it will **remove** PSMs annotated as contaminants and provided to the ‘--exclude_taxon’ flag, PSMs with isolation interference > 50%, PSMs with fewer than half SPS precursors matched, PSMs with low S/N, entries == "NoQuanLabels"
+This step will **retain** unambiguous PSMs, PSMs that match a unique protein group, PSMs of rank = 1, PSMs of rank = 1 by search engine, target and decoy PSMs matched to a given spectrum and ranked by their score PSMs identified for MS2-spectra, and PSMs with injection time < 50 ms. Simultaneously, it will **remove** PSMs annotated as contaminants, ambiguous entries (containing ';') and provided to the ‘--exclude_taxon’ flag both in the field 'Marked as', PSMs with isolation interference > 50%, PSMs with fewer than half SPS precursors matched, PSMs with low S/N, entries == "NoQuanLabels"
 
 ```
 lopit_analyst.py filtering --input Step1__Diagnostics_Pmar/Parsed_PSM.headers.Pmar.tsv \
