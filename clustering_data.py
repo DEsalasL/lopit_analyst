@@ -208,7 +208,8 @@ def my_tsne(df, dataset, marker, components, method, perplex):
         print(f'error running tsne, sklearn is {sklearn}, cuml is {cuml}')
         sys.exit(-1)
     tsne_df['marker'] = tsne_df.index.map(marker)
-    tsne_df['marker'].fillna('unknown', inplace=True)
+    # tsne_df['marker'].fillna('unknown', inplace=True)
+    tsne_df['marker'] = tsne_df['marker'].fillna('unknown')
     if components == 2:
         _ = gr.plot_tsne(tsne_df, dataset, components, perplex)
     return tsne_df
@@ -568,31 +569,44 @@ def dataset_to_dic(dic):
     return newdic
 
 
-def dataset_grouping(dfs_dic, combos):
+def dataset_grouping(dfs_dic, combos, dstype):
     comb_dic = {''.join(comb): comb for comb in combos}
-    mixes = dataset_to_dic(dfs_dic)
+    if dstype == 'all':
+        mixes = dataset_to_dic(dfs_dic)
+    else:
+        subset_dic = {k: dfs_dic[k] for k in comb_dic.keys()
+                      if k in dfs_dic.keys()}
+        mixes = dataset_to_dic(subset_dic)
     for c in comb_dic.keys():
-        print(f'Grouping Dataset: {c}')
-        dfs = [dfs_dic[k] for k in dfs_dic.keys() if k in comb_dic[c]]
-        mix = reduce(lambda left, right: pd.merge(left, right,
-                                                  on='Accession', how='inner'),
-                     dfs)
-        no_dups = mix.T.drop_duplicates().T
-        pi = no_dups.filter(regex='^calc.pI').columns.to_list()
-        calc_pi = {k: '.'.join(k.split('.')[:-1])
-                   if len(k.split('.')) > 2 else k.split('_')[0] for k in pi}
-        no_dups.rename(columns=calc_pi, inplace=True)
-        #  --- updating PSMs values ---   #
-        torem, new_psms_values = new_psms(no_dups)
-        torem += no_dups.filter(regex='_').columns.to_list()
-        #   ---  removing extra columns   ---
-        for entry in torem:
-            del no_dups[entry]
-        new_no_dups = pd.merge(no_dups, new_psms_values,
-                               on='Accession', how='inner')
-        new_no_dups['Dataset'] = c
-        multi_index_df = multi_indexing_df(new_no_dups, c)
-        mixes[c] = multi_index_df
+        if c not in mixes.keys():
+            print(f'Grouping Dataset: {c}')
+            dfs = [dfs_dic[k] for k in dfs_dic.keys() if k in comb_dic[c]]
+            if not dfs:
+                print(f"No dataframes found for {c}. Please check value "
+                      f"declared contains experiment groups separated by '-' "
+                      f"and multiple groups are separated by ','.\n"
+                      f"Exiting program...")
+                sys.exit(-1)
+            mix = reduce(lambda left, right: pd.merge(left, right,
+                                                      on='Accession',
+                                                      how='inner'),
+                         dfs)
+            no_dups = mix.T.drop_duplicates().T
+            pi = no_dups.filter(regex='^calc.pI').columns.to_list()
+            calc_pi = {k: '.'.join(k.split('.')[:-1])
+                       if len(k.split('.')) > 2 else k.split('_')[0] for k in pi}
+            no_dups.rename(columns=calc_pi, inplace=True)
+            #  --- updating PSMs values ---   #
+            torem, new_psms_values = new_psms(no_dups)
+            torem += no_dups.filter(regex='_').columns.to_list()
+            #   ---  removing extra columns   ---
+            for entry in torem:
+                del no_dups[entry]
+            new_no_dups = pd.merge(no_dups, new_psms_values,
+                                   on='Accession', how='inner')
+            new_no_dups['Dataset'] = c
+            multi_index_df = multi_indexing_df(new_no_dups, c)
+            mixes[c] = multi_index_df
     return mixes
 
 
@@ -646,7 +660,7 @@ def psms_sums_by_protgroup(sdf):
 
 def progressive_df(df1, df2, outname, how, verbosity=False,
                    anot=pd.DataFrame()):
-    fpath = os.path.join(os.getcwd(), f'{outname}_df.tsv')
+    fpath = os.path.join(os.getcwd(), f'{outname}.tsv')
     merged = pd.merge(df1, df2, left_index=True, right_index=True, how=how)
     if not anot.empty:
         anot.set_index('Accession', inplace=True)
@@ -681,13 +695,15 @@ def accessory_data(entry1, entry2, entry3, global_df):
         markers_map = pd.DataFrame()
     #   ---  reading input files or organizing dfs ---   #
     if entry2 is not None:
-        features_df = pd.read_csv(entry2, sep='\t', header=0)
+        features_df = pd.read_csv(entry2, sep=r'\t|,', header=0,
+                                  engine='python')
     else:
         print('No protein feature file has been provided')
         features_df = pd.DataFrame()
     #   ---  reading input files or organizing dfs ---   #
     if entry3 is not None:
-        additional_df = pd.read_csv(entry3, sep='\t', header=0)
+        additional_df = pd.read_csv(entry3, sep=r'\t|,', header=0,
+                                    engine='python')
         if 'Accession' not in additional_df.columns.to_list():
             print('The additional file does not contain a column identified '
                   'as: Accession')
@@ -731,7 +747,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     if pca:
         print(f'Generating a PCA')
         #   ---   PCA framework   ---   #
-        new_tmtcols = df_slice.filter(regex='^TMT').columns.to_list()
+        new_tmtcols = 6
         pca_99 = my_pca(df_slice, new_tmtcols, dataset, 0.99)
     else:
         pca_99 = None
@@ -908,13 +924,16 @@ def cluster_analysis(files_list, features, datasets, tsne_method,
     #   ---   datasets combinations   ---   #
     if datasets == 'all':
         datasets = create_combinations(list(my_dfs.keys()))
-    dfs_dic = dataset_grouping(my_dfs, datasets)
+        dfs_dic = dataset_grouping(my_dfs, datasets, 'all')
+    else:
+        dfs_dic = dataset_grouping(my_dfs, datasets, 'user_defined')
 
     datasets = list(dfs_dic.keys())
+    print('Requested datasets are:\n', datasets)
 
     #   ---  accession checkup and update of additional files  ---   #
     global_df = pd.DataFrame(pd.concat([my_dfs[k].loc[:, 'Accession']
-                           for k in my_dfs.keys()]))
+                                            for k in my_dfs.keys()]))
     global_df.drop_duplicates(inplace=True)
     markers_map, features_df, annotations_df = accessory_data(mymarkers,
                                                               features,

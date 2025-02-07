@@ -497,8 +497,12 @@ def supervised_clustering(directory, odf, markers_df, train_size,
                                                      how='outer'),
                         [svm_df, knn_df, randomf_df, nb_df])
     #
-    acc_file = lopit_utils.accesion_checkup(odf, accessory_file,
-                                            ftype='accessory file')
+    if accessory_file is not None:
+        acc_file = lopit_utils.accesion_checkup(odf, accessory_file,
+                                                ftype='accessory file')
+    else:
+        acc_file = ''
+
     if isinstance(markers_df, pd.DataFrame):
         _ = wrapping_up(df, reconst_df, markers_df, outname, acc_file)
     else:

@@ -34,7 +34,7 @@ def df_reduction(odf, exclude, sn_value):
         (df['Contaminant'] == False) &  # PSMs annotated as contaminants
         ~(df['Master.Protein.Accessions'].str.contains('Cont_')) &  # contaminant
         ~(df['Protein.Accessions'].str.contains('Cont_')) &  # contaminants
-        ~(df['Marked.as'].str.contains(';')) &  # contaminants
+        ~(df['Marked.as'].str.contains(';')) &  # ambiguous
         ~(df['Marked.as'].str.contains(exclude)) &  # contaminants, see bypass
         (df['Number.of.Protein.Groups'] == 1) &  # match a unique protein group
         (df['Rank'] == 1) &  # PSMs of rank = 1

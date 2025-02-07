@@ -345,6 +345,9 @@ def run_diagnostics(psmfile, phenotypefile, density, writeout,
 
     pre_parsed_psm.to_csv(f'Parsed_PSM.headers.{outname}.tsv',
                               sep='\t', index=False)
+    # checking phenodata experiment declaration and experiments in PSMs file
+    _ = lopit_utils.experiments_exist(pre_parsed_psm, pre_parsed_pheno,
+                                      'psms', 'pheno')
     if writeout:
         statistics_df.to_csv(f'Statistics.test.{outname}.tsv',
                              sep='\t', index=True)  # see README1

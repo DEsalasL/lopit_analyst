@@ -1159,3 +1159,19 @@ def common_prediction(df, cols, hdbscan=False, cutoff=''):
         df[col] = df[col].fillna('unknown')
     df[complete] = df.loc[:, complete].fillna('unknown')
     return df
+
+
+def experiments_exist(df1, df2, df1_type, df2_type):
+    if not df2.empty:
+        df1_exps = list(df1['Experiment'].unique())
+        df2_exps = list(df2['Experiment'].unique())
+        exp_intersect = set(df1_exps).intersection(set(df2_exps))
+        if len(df1_exps) == len(df2_exps) == len(exp_intersect):
+            pass
+        else:
+            print('There is incongruence in the experiment declaration'
+                  'among the psms and the pheno files\nExperiments '
+                  f'declared are: {df1_type}: {df1_exps}\n{df2_type}: '
+                  f'{df2_exps}\nExiting program...')
+            sys.exit(-1)
+    return

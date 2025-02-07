@@ -673,7 +673,6 @@ def guess_data_type(df1, df2):  # guessing if accession only or accession-psm
         return merged
 
 
-
 def imp_agg_normalize(psmfile, pheno_file, protein_file,
                       fileout, cmds, mnar, channels_mnar,
                       mar, channels_mar, reconstitute, verbosity):
@@ -716,6 +715,10 @@ def imp_agg_normalize(psmfile, pheno_file, protein_file,
     #   ---   Data correction   ---   #
 
     if not pre_parsed_pheno.empty:
+        # checking phenodata experiment declaration and experiments in PSMs file
+        _ = lopit_utils.experiments_exist(imputed_df, pre_parsed_pheno,
+                                          'imputed psms',
+                                          'pheno')
         print('\n*-- Correction using peptide amount AND sample loading '
               'will be done --*')
         first_correction = corr_by_peptide_amount(imputed_df, pre_parsed_pheno)
