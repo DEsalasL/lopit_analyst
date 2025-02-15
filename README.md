@@ -31,7 +31,7 @@ packages required:
 - seaborn
 - patchworklib (preferrable version ==0.6.2)
 
-### 3. if step1 and 2 fail, then create an environment as follows
+### 3. Another way to create the environment is:
 ```conda create --name lopit_analyst --file requirements.txt```
 
 #Usage
