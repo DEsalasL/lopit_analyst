@@ -3,10 +3,10 @@ A program for analysing TMT labeled proteomics data that have been pre-processed
 
 # Installation
 CUDA/GPU requirements:
-- Cuda 11+
+- Cuda 12+
 - NVIDIA driver 450.80.02+
 - Volta architecture or better (compute capability >=7.0)
-- Python 3.11+
+- Python 3.12+
 
 
 
