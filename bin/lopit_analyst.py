@@ -232,30 +232,33 @@ def predict_compartments(args):  # workflow 7 subparser sml
 
 #   ---   Execute program   ---   #
 
-#  --- user arguments ---  #
+def main():
+    #  --- user arguments ---  #
+    arguments = lm.arguments()
 
 
-arguments = lm.arguments()
+    #   ---   subroutines   ---   #
+    if arguments['subparser_name'] == 'data_prep':
+        output_dir = lopit_utils.create_dir('Formatted_input_data',
+                                            arguments['out_name'])
+        if arguments['data_type'] != 'markers_on_coordinates':
+            os.chdir(output_dir)
+        _ = prepare_input(arguments)
+    elif arguments['subparser_name'] == 'diagnostics':
+        _ = diagnosis(arguments)
+    elif arguments['subparser_name'] == 'filtering':
+        _ = filter_raw_data(arguments)
+    elif arguments['subparser_name'] == 'mv_removal':
+        _ = mv_removal(arguments)
+    elif arguments['subparser_name'] == 'imputation_aggregation':
+        _ = impute_and_aggregate(arguments)
+    elif arguments['subparser_name'] == 'clustering':
+        _ = cluster_data(arguments)
+    # elif arguments['subparser_name'] == 'full_analysis':
+    #     _ = automated_analysis(arguments)
+    elif arguments['subparser_name'] == 'sml':
+        _ = predict_compartments(arguments)
 
 
-#   ---   subroutines   ---   #
-if arguments['subparser_name'] == 'data_prep':
-    output_dir = lopit_utils.create_dir('Formatted_input_data',
-                                        arguments['out_name'])
-    if arguments['data_type'] != 'markers_on_coordinates':
-        os.chdir(output_dir)
-    _ = prepare_input(arguments)
-elif arguments['subparser_name'] == 'diagnostics':
-    _ = diagnosis(arguments)
-elif arguments['subparser_name'] == 'filtering':
-    _ = filter_raw_data(arguments)
-elif arguments['subparser_name'] == 'mv_removal':
-    _ = mv_removal(arguments)
-elif arguments['subparser_name'] == 'imputation_aggregation':
-    _ = impute_and_aggregate(arguments)
-elif arguments['subparser_name'] == 'clustering':
-    _ = cluster_data(arguments)
-# elif arguments['subparser_name'] == 'full_analysis':
-#     _ = automated_analysis(arguments)
-elif arguments['subparser_name'] == 'sml':
-    _ = predict_compartments(arguments)
+if __name__ == '__main__':
+    main()
