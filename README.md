@@ -58,6 +58,7 @@ Outputs from PD 3.1
 
 ## 2 Environment activation
 ```source activate <environment_name>``` 
+
 Specific instructions only for Waller lab users:
 ```
 source $HOME/.conda_source
