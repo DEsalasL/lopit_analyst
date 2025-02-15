@@ -57,9 +57,8 @@ Outputs from PD 3.1
 -	**Tagm**: tsv file containing TAGM classification (e.g., classification for 4-way experiment combination PLNPLOPL2PL1.TAGM-MAP.out.tsv)
 
 ## 2 Environment activation
-```source activate <environment_name``` 
-
-Instruction specific for Waller lab users (as package is installed in their home directory):
+```source activate <environment_name>``` 
+Specific instructions only for Waller lab users:
 ```
 source $HOME/.conda_source
 export PATH=$PATH:/home/<user>/Lopit_Analyst_Source  #  replace user by your own username
