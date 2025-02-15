@@ -13,9 +13,9 @@ import svm_knn_rf_clustering as sml
 
 
 #   Info  #
-__author__ = ['Dayana Salas-Leiva', 'Konstantin Barylyuk']
+__author__ = ['Dayana Salas-Leiva']
 __email__ = 'ds2000@cam.ac.uk'
-__version__ = '0.0.1'
+__version__ = '1.0.'
 #   End Info   #
 
 
