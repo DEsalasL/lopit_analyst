@@ -12,7 +12,7 @@ from joblib import Parallel, delayed
 from imblearn.pipeline import Pipeline
 from sklearn.pipeline import make_pipeline
 from sklearn.naive_bayes import GaussianNB
-from natsort import index_natsorted, natsorted
+from natsort import natsorted
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.calibration import CalibratedClassifierCV
@@ -23,7 +23,7 @@ from sklearn.model_selection import (GridSearchCV, KFold,
 from sklearn.preprocessing import (StandardScaler, PowerTransformer,
                                    LabelEncoder)
 from sklearn.metrics import (classification_report, multilabel_confusion_matrix,
-                             accuracy_score, roc_auc_score)
+                             accuracy_score)
 
 
 sml_cols = ['SVM.prediction', 'KNN.prediction', 'Random.forest.prediction',
@@ -669,10 +669,10 @@ def wrapping_up(master_df, fdf, marker_df, outname, accessory_file):
         #                   outname, hdbscan, '', accessory_file)
     # writing sml predictions:
     ffdf = lopit_utils.write_mydf([master_df, fdf], outname,
-                      hdbscan, '', accessory_file)
+                                  hdbscan, '', accessory_file)
 
     # return to main directory
-    os.chdir('..')
+    os.chdir('../..')
     return 'Done'
 
 

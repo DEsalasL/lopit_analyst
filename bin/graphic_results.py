@@ -35,7 +35,7 @@ def plot_umap(embed, experiment, dimensions):
         plt.savefig(f'{experiment}_{x}{y}.plot.pdf')
         plt.cla()
         plt.close()
-    os.chdir('..')
+    os.chdir('../..')
     return 'Done'
 
 
@@ -63,7 +63,7 @@ def plot_tsne(df, dataset, components, perplex):
     plt.savefig(f'{dataset}_t-SNE.plot_{components}c_{perplex}.pdf')
     plt.cla()
     plt.close()
-    os.chdir('..')
+    os.chdir('../..')
     return 'Done'
 
 

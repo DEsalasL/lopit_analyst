@@ -39,6 +39,8 @@ colors = ['gold', '#fb9a99', '#e31a1c', '#a6cee3', '#1f78b4',
           '#2c2422', '#f4e9e5', '#552e65', '#4a5722', '#f8fbee',
           '#89856f', '#f9f8f5', '#0d1611', '#e6f8ee', '#03182c']
 
+
+
 #   --- patch for bug in large pivot table function  ---   #
 
 #   ---
@@ -1175,3 +1177,27 @@ def experiments_exist(df1, df2, df1_type, df2_type):
                   f'{df2_exps}\nExiting program...')
             sys.exit(-1)
     return
+
+def tmt_sorted_df(df, tmt_channels):
+    df_cols = df.columns.tolist()
+    tmt_cols = list(df.filter(regex=r'^TMT.*\d+').columns)
+    remaining_cols = [col for col in df_cols if col not in tmt_cols] # ordered
+    col_by_exp = {}
+    for col in tmt_cols:
+        label, exp = col.split('.')
+        if not exp in col_by_exp.keys():
+            col_by_exp[exp] = [label]
+        else:
+            col_by_exp[exp].append(label)
+    # sorting according to pre-set channel order
+    new_order = []
+    for exp in col_by_exp.keys():
+        for label in tmt_channels:
+            if label in col_by_exp[exp]:
+                chname = f'{label}.{exp}'
+                new_order.append(chname)
+            else:
+                pass
+    ordered_cols = remaining_cols + new_order
+    sorted_df = df[ordered_cols]
+    return sorted_df

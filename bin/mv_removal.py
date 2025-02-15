@@ -7,7 +7,6 @@ import pandas as pd
 import seaborn as sns
 import missingno as msno
 import patchworklib as pw
-from functools import reduce
 import matplotlib.pyplot as plt
 
 
@@ -452,7 +451,7 @@ def run_heatmap_explorer(file_in, outname, col_rm_threshold,
     oname = 'Total_MV_by_TMT_channel_and_total_protein_groups.tsv'
     frames.to_csv(oname, sep='\t', index=False)
     print('\n*** - MV removal workflow has finished - ***\n')
-    os.chdir('..')
+    os.chdir('../..')
     # *-*-* garbage collection *-*-* #
     collected = gc.collect()
     print(f'{collected} garbage objects were collected')

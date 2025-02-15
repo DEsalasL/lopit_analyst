@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-import lopit_utils
+from bin import lopit_utils
 import numpy as np
 import pandas as pd
 from functools import reduce
@@ -327,7 +327,7 @@ if __name__ == '__main__':
         os.chdir(charms_path)
         args = 'dictionary with all arguments'
         features_df = sequence_properties(file_in, outname, args)
-    os.chdir('..')
+    os.chdir('../..')
     
 
 

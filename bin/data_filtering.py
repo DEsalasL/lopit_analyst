@@ -179,7 +179,7 @@ def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
     collected = gc.collect()
     print(f'{collected} garbage objects were collected')
     processed_df = missing_values_calculation(filt_df, fileout)
-    os.chdir('..')
+    os.chdir('../..')
     print('*** - Filtering  workflow has finished -***\n')
     return processed_df
 

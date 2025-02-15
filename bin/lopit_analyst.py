@@ -1,5 +1,4 @@
 ''' #!/home/dsalas/.conda/envs/lopit_analyst_dev/bin/python '''
-import gc
 import os
 import sys
 import charms
@@ -10,7 +9,7 @@ import data_filtering as flt
 import psm_diagnostics as dia
 import clustering_data as clt
 import mv_imp_norm_aggr as iagg
-import SVM_KNN_RF_clustering as sml
+import svm_knn_rf_clustering as sml
 
 
 #   Info  #
@@ -97,7 +96,7 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
                                                            args['y_axis'],
                                                            args['size'],
                                                            args['color'],
-                                                    args['figure_dimension'],
+                                                           args['figure_dimension'],
                                                            args['verbose'])
             except:
                 interact_2d = lopit_utils.figure_rendering(args['input'],
@@ -105,7 +104,7 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
                                                            args['y_axis'],
                                                            args['size'],
                                                            args['color'],
-                                                    args['figure_dimension'],
+                                                           args['figure_dimension'],
                                                            args['verbose'])
         else:
             a = args['figure_dimension']

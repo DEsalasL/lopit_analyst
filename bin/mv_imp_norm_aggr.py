@@ -2,11 +2,8 @@ import os
 import re
 import gc
 import sys
-import pathlib
-import numpy as np
 import lopit_utils
 import pandas as pd
-import patchworklib as pw
 from venn import venn as venny
 from scipy.stats import gmean
 import psm_diagnostics as dia
@@ -772,7 +769,9 @@ def imp_agg_normalize(psmfile, pheno_file, protein_file,
         tmt_types = {col: float for col in all_dfs_dic[
                         experiment].columns.to_list() if col.startswith('TMT')}
         all_dfs_dic[experiment].astype(tmt_types, copy=True).dtypes
-        all_dfs_dic[experiment].to_csv(f'df_for_clustering_{experiment}.tsv',
+        tmt_sorted_df = lopit_utils.tmt_sorted_df(all_dfs_dic[experiment],
+                                                  lopit_utils.tmt_chans)
+        tmt_sorted_df.to_csv(f'df_for_clustering_{experiment}.tsv',
                                        sep='\t', index=False)
     #   ---  all plots ---   #
     print('Creating comparative plots')
@@ -787,7 +786,7 @@ def imp_agg_normalize(psmfile, pheno_file, protein_file,
                                      f'without-reconstitution')
 
     print('*** - mv imputation and aggregation workflow has finished - ***\n')
-    os.chdir('..')
+    os.chdir('../..')
 
     # *-*-* garbage collection *-*-* #
     collected = gc.collect()

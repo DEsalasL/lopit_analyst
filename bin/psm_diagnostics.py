@@ -11,9 +11,6 @@ import plotnine as p9
 import seaborn as sns
 import patchworklib as pw
 import matplotlib.pyplot as plt
-from joblib import Parallel, delayed
-
-
 
 __author__ = 'Dayana E. Salas-Leiva'
 __version__ = '0.0.1'
@@ -442,7 +439,7 @@ def run_diagnostics(psmfile, phenotypefile, density, writeout,
                                               )[len(all_histograms)]
     _ = lopit_utils.rendering_figures(three_figs,
                                       'All_diagnostic_hist.pdf')
-    os.chdir('..')
+    os.chdir('../..')
     print('\n*** - End of diagnostics workflow - ***\n')
     # *-*-* garbage collection *-*-* #
     collected = gc.collect()

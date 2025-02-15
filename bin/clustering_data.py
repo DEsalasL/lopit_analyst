@@ -20,6 +20,8 @@ from matplotlib.colors import hex2color
 from natsort import index_natsorted, natsorted
 from sklearn.preprocessing import StandardScaler
 
+from lopit_utils import tmt_sorted_df
+
 try:
     import rmm
     from cuml.manifold import TSNE
@@ -262,7 +264,7 @@ def my_pca(df, tmtcols, dataset, comp):
     _ = gr.correlation_matrix_plot(ndf, dataset, pc_list, weights)
     white_transformed_pc.to_csv(f'PCA_white_results_{dataset}.tsv',
                                 sep='\t', index=True)
-    os.chdir('..')
+    os.chdir('../..')
     return white_transformed_pc
 
 
@@ -343,7 +345,7 @@ def hdbscan_workflow(df, dataset, dftype, offset, epsilon, min_size,
                       index=True)
     persistence_df.to_csv(f'Hdb_persistence_df_{dataset}_{dftype}.tsv',
                           sep='\t', index=True)
-    os.chdir('..')
+    os.chdir('../..')
     return hdb_df, hdbs_stats, persistence_df, sum_df1
 
 
@@ -471,7 +473,7 @@ def projections(odf, dataset, sizes, loop_dic):
             _ = gr.projection(df, coord1, coord2, labels, probs, sizes,
                               dataset, custom_palette,
                               f'{dirname}_{distance}{labels}')
-            os.chdir('..')
+            os.chdir('../..')
     return 'Done'
 
 
@@ -498,7 +500,7 @@ def feature_projections(df, coord1, coord2, dataset, c_type, dic):
         os.chdir(c_type)
         pj = gr.projection(df, coord1, coord2, labels, probs, sizes,
                            dataset, palette, f'{c_type}_{outname}')
-        os.chdir('..')
+        os.chdir('../..')
     return 'Done'
 
 
@@ -662,15 +664,16 @@ def progressive_df(df1, df2, outname, how, verbosity=False,
                    anot=pd.DataFrame()):
     fpath = os.path.join(os.getcwd(), f'{outname}.tsv')
     merged = pd.merge(df1, df2, left_index=True, right_index=True, how=how)
+    merged_sorted = tmt_sorted_df(merged, lopit_utils.tmt_chans)
     if not anot.empty:
         anot.set_index('Accession', inplace=True)
-        new_merged = pd.merge(merged, anot, left_index=True,
+        new_merged = pd.merge(merged_sorted, anot, left_index=True,
                               right_index=True, how=how)
         if verbosity:
             new_merged.to_csv(fpath, sep='\t', index=True)
     else:
         if verbosity:
-            merged.to_csv(fpath, sep='\t', index=True)
+            merged_sorted.to_csv(fpath, sep='\t', index=True)
     return merged
 
 
@@ -823,7 +826,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     progress_df2b, clst_df = lopit_utils.get_shared_clusters(progress_df2a,
                                                'hdb_labels_euclidean_TMT',
                                                'hdb_labels_manhattan_TMT',
-                                                     dataset)
+                                                             dataset)
 
     #  --- mapping markers onto hdb predictions ---   #
     if 'marker' in progress_df2b.columns.to_list():
@@ -858,7 +861,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
             print(f'working on {key}')
             a = gr.dist_abundance_profile_by_cluster(progress_df4, key[0],
                                                      dataset)
-        os.chdir('..')
+        os.chdir('../..')
 
     # #   ---  df integration with protein features  ---  #
     if not features_df.empty:
@@ -902,7 +905,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
         print(f"If you did not provide 'protein feature' or 'accessory files',\n\
               your FINAL FILE IS:', f'Coordinates_ALL_{dataset}_df.tsv")
 
-    os.chdir('..')
+    os.chdir('../..')
     # *-*-* garbage collection *-*-* #
     collected = gc.collect()
     print(f'{collected} garbage objects were collected')
