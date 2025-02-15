@@ -8,38 +8,31 @@ CUDA/GPU requirements:
 - Volta architecture or better (compute capability >=7.0)
 - Python 3.11+
 
-### 1. Create an environment with mamba (only valid in Waller lab server) and activate it:
-```
-source $HOME/.conda_source
-replace <user> for your user account handle in the following command line:
-mamba create --prefix=/wallerlab/opt/conda_dirs/<user>/envs/lopit_analyst python=3.11.0
-conda activate lopit_analyst
-```
 
-### 2. Install CUDA standard (includes duDF, cuML, cuGraph, nx-cugraph, cuSpatioal, cuProj, cuxfilter, cuCIM, RAFT, cuVS)
-```
-mamba install -c rapidsai -c conda-forge -c nvidia rapids=24.10 python=3.11.0 cuda-version=11.8
-mamba install cuda-cudart cuda-version=11
-```
-**Note**: mamba is used to avoid known incompatibility issues between CUDA installation and conda
 
-### 3. Install python modules using pip.  
-pip install <module>
-modules required:
+### 1. Install CUDA standard (includes duDF, cuML, cuGraph, nx-cugraph, cuSpatioal, cuProj, cuxfilter, cuCIM, RAFT, cuVS)
+```
+conda create -n rapids-24.12 -c rapidsai -c conda-forge -c nvidia rapids=24.12 python=3.12 cuda-version=12.5
+```
+**Note**: if there are issues during installation please refer to https://docs.rapids.ai/install/ for troubleshooting
+
+### 2. After step 1, install additional packages
+```conda install -n rapids-24.12 <package>```
+packages required:
 - PyPDF2
 - dash
 - dask
 - hdbscan
 - matplotlib
+- umap-learn
 - missingno
 - openpyxl
 - pypdf
 - seaborn
-- patchworklib==0.6.2
+- patchworklib (preferrable version ==0.6.2)
 
-### 4. LA modules: (make it easy-> distributee as conda env)
--
-
+### 3. Another way to create the environment is:
+```conda create --name lopit_analyst --file requirements.txt```
 
 #Usage
 
@@ -64,6 +57,9 @@ Outputs from PD 3.1
 -	**Tagm**: tsv file containing TAGM classification (e.g., classification for 4-way experiment combination PLNPLOPL2PL1.TAGM-MAP.out.tsv)
 
 ## 2 Environment activation
+```source activate <environment_name>``` 
+
+Specific instructions only for Waller lab users:
 ```
 source $HOME/.conda_source
 export PATH=$PATH:/home/<user>/Lopit_Analyst_Source  #  replace user by your own username
