@@ -14,7 +14,7 @@ CUDA/GPU requirements:
 ```
 conda create -n rapids-24.12 -c rapidsai -c conda-forge -c nvidia rapids=24.12 python=3.12 cuda-version=12.5
 ```
-**Note**: if there issues during installation please refer to https://docs.rapids.ai/install/
+**Note**: if there are issues during installation please refer to https://docs.rapids.ai/install/ for troubleshooting
 
 ### 2. After step 1, install additional packages
 ```conda install -n rapids-24.12 <package>```
