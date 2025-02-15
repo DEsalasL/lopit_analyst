@@ -17,7 +17,7 @@ conda create -n rapids-24.12 -c rapidsai -c conda-forge -c nvidia rapids=24.12 p
 **Note**: if there issues during installation please refer to https://docs.rapids.ai/install/
 
 ### 2. After step 1, install additional packages
-conda install -n rapids-24.12 <package>
+```conda install -n rapids-24.12 <package>```
 packages required:
 - PyPDF2
 - dash
