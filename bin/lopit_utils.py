@@ -14,7 +14,7 @@ import plotly.express as px
 from itertools import product
 from collections import Counter
 import matplotlib.pyplot as plt
-from pypdf import PdfMerger, PdfReader
+from pypdf import PdfWriter, PdfReader
 # from SVM_KNN_RF_clustering import write_mydf
 from itertools import combinations, zip_longest
 from matplotlib.backends.backend_pdf import PdfPages
@@ -172,10 +172,26 @@ def multiple_fig_to_pdf(lst, file_out):
 
 
 def merge_pdfs(lst_w_pdfs, outname):
-    merger = PdfMerger()
-    for filename in lst_w_pdfs:
-        merger.append(PdfReader(filename, 'rb'))
-    merger.write(outname)
+    print('Merging PDFs...')
+    writer = PdfWriter()
+    for path in lst_w_pdfs:
+        print(f'Processing PDF file {path}...')
+        try:
+            reader = PdfReader(path)
+            for page in reader.pages:
+                writer.add_page(page)
+        except Exception as e:
+            raise Exception(f'Error processing PDF file {path}: {e}')
+
+    try:
+        with open(outname, 'wb') as output_file:
+            writer.write(output_file)
+        print(f'PDFs merged successfully into {outname}.')
+    except Exception as e:
+        raise Exception(f'Error writing merged PDF: {e}')
+
+    # delete source files
+    print('Deleting source PDF files...')
     for abspath in lst_w_pdfs:
         fpath = pathlib.Path(abspath)
         fpath.unlink()
@@ -198,6 +214,25 @@ def merge_images(images_lst, outname):
         fpath.unlink()
     return 'Done'
 
+
+def pdf_size(width, height):
+    # Calculate plot dimensions for 1/4 of letter size page (adjust as needed)
+    pdf_width_inches = 8.5
+    pdf_height_inches = 11
+    plot_width_inches = pdf_width_inches * width
+    plot_height_inches = pdf_height_inches * height
+    return plot_width_inches, plot_height_inches
+
+
+def legend_box_location():
+    legend = plt.legend(loc='upper left',
+               fontsize=4, bbox_to_anchor=(1.02, 1),
+               borderaxespad=0.0)
+    plt.gca().add_artist(legend)
+    legend.get_frame().set_linewidth(1)
+    legend.get_frame().set_edgecolor('black')
+    # Adjust layout to prevent overlap
+    plt.tight_layout(rect=(0, 0, 0.75, 1))  # [left, bottom, right, top]
 
 #   ---
 def create_dir(dirname, outname):
@@ -262,7 +297,7 @@ def renaming_columns(df, rename_cols, outname):
             nsdf = sdf[~sdf['Experiment'].isin(exps)].copy(deep=True)
             # force to drop if entire column has '' == bug in PD3.1
             for col in tmt_cols:
-                nsdf[col].replace('', np.NAN, inplace=True)
+                nsdf[col].replace('', np.nan, inplace=True)
             nsdf.dropna(axis=1, how='all', inplace=True)
         else:
             nsdf = sdf[sdf['Experiment'].isin(exps)].copy(deep=True)
@@ -382,7 +417,7 @@ def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args,
     df.columns = df.columns.str.replace('Abundance.', 'TMT', regex=False)
     #   --- if 0 in TMT replace for np.NA ---   #
     scol = [col for col in df.columns.to_list() if col.startswith('TMT')]
-    df[scol] = df.loc[:, scol].replace(0, np.NAN)
+    df[scol] = df.loc[:, scol].replace(0, np.nan)
     ndf = experiment_assigment(df, exp_pref, usecol)
     if rename_cols is not None:
         _ = channel_exist(df, rename_cols)
