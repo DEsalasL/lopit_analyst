@@ -54,7 +54,7 @@ def misva(odf, outname, suffix):
     df = odf.copy(deep=True)
     #   ---  Matrix   ---   #
     ax0 = pw.Brick(figsize=(10, 5))
-    msno.matrix(df, ax=ax0)
+    msno.matrix(df, ax=ax0)  # error grid(b=False) fixed in mnso 0.5.2+
     msg = f'MISSING VALUES PER TMT CHANNEL - {outname}-{suffix}'
     ax0.set_title(msg)
 
@@ -463,11 +463,9 @@ if __name__ == '__main__':
     '''
     python <matrix.filtered> <outname>
     matrix.filtered = df_PL1-PL2.tsv or df_PLO-PLN.tsv or PL1PL2_PLNO.tsv
-    'D:\PycharmProjects\LOPIT\Step2__First_filter_2023621_162311_SequesHT_TK\df_PL1-PL2.tsv'
-    'D:\PycharmProjects\LOPIT\Step2__First_filter_2023621_162311_SequesHT_TK\df_PLO-PLN.tsv'
-    'D:\PycharmProjects\LOPIT\Step2__First_filter_2023621_162311_SequesHT_TK\df_PL12-PLNO.tsv'
+    'df_PL1-PL2.tsv'
+    'df_PLO-PLN.tsv'
+    'df_PL12-PLNO.tsv'
     '''
-    filtered_df_pre_imputation = run_heatmap_explorer(sys.argv[1], sys.argv[2])
-
 
 
