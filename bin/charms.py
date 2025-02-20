@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from bin import lopit_utils
+import lopit_utils
 import numpy as np
 import pandas as pd
 from functools import reduce
