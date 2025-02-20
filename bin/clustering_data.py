@@ -6,7 +6,6 @@ import hdbscan
 import lopit_utils
 import numpy as np
 import pandas as pd
-from umap import UMAP
 from sklearn import metrics
 import graphic_results as gr
 from functools import reduce
@@ -19,12 +18,13 @@ from sklearn.decomposition import PCA
 from matplotlib.colors import hex2color
 from natsort import index_natsorted, natsorted
 from sklearn.preprocessing import StandardScaler
-
 from lopit_utils import tmt_sorted_df
 
 try:
     import rmm
     from cuml.manifold import TSNE
+    from cuml import UMAP
+    from cuml.cluster import HDBSCAN
     cuml = True
     sklearn = False
     rmm.reinitialize(pool_allocator=True, managed_memory=True)
@@ -32,6 +32,7 @@ except ImportError:
     sklearn = True
     cuml = False
     from sklearn.manifold import TSNE
+    from umap import UMAP
 
 
 #  -- cluster projection parameters ---   #
@@ -150,6 +151,7 @@ def create_tsne_sklearn(df, components, method, perplex):
 
 def create_tsne_cuml(df, components, method, perplex):
     # cuml-tsne only supports two components as of Oct-10-23
+    print(f'tSNE via cuml')
     cols = df.columns.to_list()
     ndf = df.copy(deep=True).reset_index()
     cdf = ndf.loc[:, cols]
@@ -183,6 +185,7 @@ def create_tsne_cuml(df, components, method, perplex):
 
 def create_umap(df, experiment, marker, components, mindistance, n_neighbors):
     # default for mindistance is set from submenu or cmd line
+    print(f'UMAP via cuml')
     if n_neighbors is None:
         n_neighbors = int(np.ceil(np.sqrt(df.shape[0])))
     reducer = UMAP(n_components=components, min_dist=mindistance,
@@ -236,13 +239,14 @@ def pc_99(explained_variance_ratio, pc_list, white_transformed_pc):  # not used
 
 
 # @profile
-def my_pca(df, tmtcols, dataset, comp):
+def my_pca(df, dataset, comp):
     '''
     https://builtin.com/machine-learning/pca-in-python
     '''
+    print(f'Generating a PCA and selecting {comp} best components')
     newdir = gr.new_dir(f'PCA')
     os.chdir(newdir)
-    ndf = df.copy(deep=True).loc[:, tmtcols]
+    ndf = df.copy(deep=True)
     #  getting a whitened PCA and projecting the PCs onto the matrix  #
     pipeline = Pipeline([('scaling', StandardScaler()),
                          ('pca', PCA(n_components=comp, svd_solver='full',
@@ -264,27 +268,47 @@ def my_pca(df, tmtcols, dataset, comp):
     _ = gr.correlation_matrix_plot(ndf, dataset, pc_list, weights)
     white_transformed_pc.to_csv(f'PCA_white_results_{dataset}.tsv',
                                 sep='\t', index=True)
-    os.chdir('../..')
+    os.chdir('..')
     return white_transformed_pc
 
 
 # @profile
-def my_umap(df, dataset, markers, min_dist, n_neighbors, verbosity):
+def my_umap(dfs, dataset, marker, min_dist, n_neighbors, verbosity):
+    df, pca_df = dfs
     # umap for only 2 components
-    umap_2dim_df = create_umap(df, f'{dataset}_2-dims', markers,
-                               2, min_dist, n_neighbors)
-    # umap for all significant pc
+    print(f'UMAP embeddings for 2 components')
+    umap_2dim_df = create_umap(df=df,
+                               experiment=f'{dataset}_2-dims',
+                               marker=marker,
+                               components=2,
+                               mindistance=min_dist,
+                               n_neighbors=n_neighbors)
+
     # set minimum distance very low (e.g., 5e-324) for density-based clustering
-    umap_xdim_df = create_umap(df, f'{dataset}_{df.shape[1]}-dim',
-                               markers, df.shape[1], 5e-324,
-                               n_neighbors)
+    if pca_df is None:
+        print(f'UMAP embeddings for 3 components')
+        # was set to pca
+        umap_xdim_df = create_umap(df=df,
+                                   experiment=f'{dataset}_3-dims',
+                                   marker=marker,
+                                   components=3,
+                                   mindistance=min_dist,
+                                   n_neighbors=n_neighbors)
+    else:
+        print(f'UMAP embeddings for {pca_df.shape[1]} pca components')
+        umap_xdim_df = create_umap(df=pca_df,
+                                   experiment=f'{dataset}_{pca_df.shape[1]}-dim',
+                                   marker=marker,
+                                   components=pca_df.shape[1],
+                                   mindistance=5e-324,
+                                   n_neighbors=n_neighbors)
     del umap_2dim_df['marker']
     del umap_xdim_df['marker']
     umap_all_dims_df = pd.merge(umap_2dim_df, umap_xdim_df, left_index=True,
                                 right_index=True, how='inner')
     if verbosity:
-        umap_all_dims_df.to_csv('UMAP_multiple_dims_df.tsv',
-                                sep='\t', index=True)
+        fpath = os.path.join(os.getcwd(), 'UMAP_multiple_dims_df.tsv')
+        umap_all_dims_df.to_csv(fpath, sep='\t', index=True)
     return umap_all_dims_df
 
 
@@ -345,7 +369,7 @@ def hdbscan_workflow(df, dataset, dftype, offset, epsilon, min_size,
                       index=True)
     persistence_df.to_csv(f'Hdb_persistence_df_{dataset}_{dftype}.tsv',
                           sep='\t', index=True)
-    os.chdir('../..')
+    os.chdir('..')
     return hdb_df, hdbs_stats, persistence_df, sum_df1
 
 
@@ -373,20 +397,34 @@ def my_hdbscan(df, metric, dataset, dftype, offset, epsilon, min_size,
         min_sample = min_size + offset
     # hdbscan clustering using mostly defaults.
 
-    clusterer = hdbscan.HDBSCAN(min_cluster_size=min_size,
-                                min_samples=min_sample,
-                                metric=metric,
-                                algorithm='best',
-                                leaf_size=40,
-                                allow_single_cluster=False,
-                                prediction_data=True,
-                                alpha=1.0,
-                                cluster_selection_method='leaf',
-                                cluster_selection_epsilon=epsilon,
-                                core_dist_n_jobs=4,
-                                approx_min_span_tree=True,
-                                gen_min_span_tree=True,
-                                match_reference_implementation=False)
+    if cuml:
+        print('HDBSCAN via cuml')
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=min_size,
+                                    min_samples=min_sample,
+                                    cluster_selection_epsilon=epsilon,
+                                    max_cluster_size=0,
+                                    metric=metric,
+                                    alpha=1.0,
+                                    p=2,
+                                    cluster_selection_method='leaf',
+                                    allow_single_cluster=False,
+                                    gen_min_span_tree=True,
+                                    prediction_data=True)
+    else:
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=min_size,
+                                    min_samples=min_sample,
+                                    metric=metric,
+                                    algorithm='best',
+                                    leaf_size=40,
+                                    allow_single_cluster=False,
+                                    prediction_data=True,
+                                    alpha=1.0,
+                                    cluster_selection_method='leaf',
+                                    cluster_selection_epsilon=epsilon,
+                                    core_dist_n_jobs=4,
+                                    approx_min_span_tree=True,
+                                    gen_min_span_tree=True,
+                                    match_reference_implementation=False)
 
     cluster_labels = clusterer.fit_predict(ndf)
     hdbscan_df = pd.DataFrame(zip(clusterer.labels_,
@@ -473,7 +511,8 @@ def projections(odf, dataset, sizes, loop_dic):
             _ = gr.projection(df, coord1, coord2, labels, probs, sizes,
                               dataset, custom_palette,
                               f'{dirname}_{distance}{labels}')
-            os.chdir('../..')
+            print('cwd', os.getcwd())
+            os.chdir('..')
     return 'Done'
 
 
@@ -500,7 +539,7 @@ def feature_projections(df, coord1, coord2, dataset, c_type, dic):
         os.chdir(c_type)
         pj = gr.projection(df, coord1, coord2, labels, probs, sizes,
                            dataset, palette, f'{c_type}_{outname}')
-        os.chdir('../..')
+        os.chdir('..')
     return 'Done'
 
 
@@ -698,14 +737,14 @@ def accessory_data(entry1, entry2, entry3, global_df):
         markers_map = pd.DataFrame()
     #   ---  reading input files or organizing dfs ---   #
     if entry2 is not None:
-        features_df = pd.read_csv(entry2, sep=r'\t|,', header=0,
+        features_df = pd.read_csv(entry2, sep="\t", header=0,
                                   engine='python')
     else:
         print('No protein feature file has been provided')
         features_df = pd.DataFrame()
     #   ---  reading input files or organizing dfs ---   #
     if entry3 is not None:
-        additional_df = pd.read_csv(entry3, sep=r'\t|,', header=0,
+        additional_df = pd.read_csv(entry3, sep='\t', header=0,
                                     engine='python')
         if 'Accession' not in additional_df.columns.to_list():
             print('The additional file does not contain a column identified '
@@ -748,10 +787,8 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     else:
         markers = matching_markers(df_slice, markers_map)
     if pca:
-        print(f'Generating a PCA')
         #   ---   PCA framework   ---   #
-        new_tmtcols = 6
-        pca_99 = my_pca(df_slice, new_tmtcols, dataset, 0.99)
+        pca_99 = my_pca(df_slice, dataset, 0.99)
     else:
         pca_99 = None
     #   ---   tSNE framework   ---   #
@@ -759,130 +796,162 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     if perplexity is None:
         perplexity = np.floor(np.sqrt(df_slice.shape[0]))
 
-    tsne_2coordinates = my_tsne(df_slice, dataset, markers, 2,
-                                tsne_method, perplexity)
+    tsne_2coordinates = my_tsne(df=df_slice,
+                                dataset=dataset,
+                                marker=markers,
+                                components=2,
+                                method=tsne_method,
+                                perplex=perplexity)
     # progressive dataframe pca + tsne 2 components
     if pca:
-        pca_tsne_df_2 = progressive_df(pca_99, tsne_2coordinates,
-                                       'PCA_tSNE2c', 'outer',
-                                       verbosity)
+        pca_tsne_df_2 = progressive_df(df1=pca_99,
+                                       df2=tsne_2coordinates,
+                                       outname='PCA_tSNE2c',
+                                       how='outer',
+                                       verbosity=verbosity)
     else:
         pca_tsne_df_2 = tsne_2coordinates
 
     if sklearn:
-        tsne_3coordinates = my_tsne(df_slice, dataset, markers, 3,
-                                    tsne_method, perplexity)
+        tsne_3coordinates = my_tsne(df=df_slice,
+                                    dataset=dataset,
+                                    marker=markers,
+                                    components=3,
+                                    method=tsne_method,
+                                    perplex=perplexity)
         del tsne_3coordinates['marker']
         # progressive dataframe pca + tsne 3 components
-        pca_tsne_df_3 = progressive_df(pca_tsne_df_2, tsne_3coordinates,
-                                       'PCA_tSNE3c', 'outer',
-                                       verbosity)
+        pca_tsne_df_3 = progressive_df(df1=pca_tsne_df_2,
+                                       df2=tsne_3coordinates,
+                                       outname='PCA_tSNE3c',
+                                       how='outer',
+                                       verbosity=verbosity)
     else:
         pca_tsne_df_3 = pd.DataFrame()
 
     print('Generating UMAP embeddings')
     #   ---   UMAP framework   ---   #
-    umap_coordinates = my_umap(df_slice, dataset, markers, min_dist,
-                               n_neighbors, verbosity)
+    umap_coordinates = my_umap(dfs=(df_slice, pca_99),
+                               dataset=dataset,
+                               marker=markers,
+                               min_dist=min_dist,
+                               n_neighbors=n_neighbors,
+                               verbosity=verbosity)
     # progressive dataframe pca + tsne + umap
     if pca:
         oname = 'PCA_tSNE_UMAP'
     else:
         oname = 'tSNE_UMAP'
     if not pca_tsne_df_3.empty:
-        pca_tsne_umap_df = progressive_df(pca_tsne_df_3, umap_coordinates,
-                                          oname, 'inner', verbosity)
+        pca_tsne_umap_df = progressive_df(df1=pca_tsne_df_3,
+                                          df2=umap_coordinates,
+                                          outname=oname,
+                                          how='inner',
+                                          verbosity=verbosity)
     else:
-        pca_tsne_umap_df = progressive_df(pca_tsne_df_2, umap_coordinates,
-                                          oname, 'inner', verbosity)
+        pca_tsne_umap_df = progressive_df(df1=pca_tsne_df_2,
+                                          df2=umap_coordinates,
+                                          outname=oname,
+                                          how='inner',
+                                          verbosity=verbosity)
 
     print('Generating HDBSCAN clusters')
     # ---   HDBSCAN framework on TMT expression   ---   #
-    hdbs_e, stats_e, persistence_e, sum_e = hdbscan_workflow(df_slice,
-                                                             dataset,
-                                                             'TMT',
-                                                             3, epsilon,
-                                                             min_size,
-                                                             min_sample)
+    hdbs_e, stats_e, persistence_e, sum_e = hdbscan_workflow(df=df_slice,
+                                                             dataset=dataset,
+                                                             dftype='TMT',
+                                                             offset=3,
+                                                             epsilon=epsilon,
+                                                             min_size=min_size,
+                                                             min_sample=min_sample)
     # progressive dataframe pca + tsne + umap + hdbscan_tmt
-    progress_df1 = progressive_df(pca_tsne_umap_df, hdbs_e,
-                                  f'Coordinates_TMT_{dataset}',
-                                  'inner')
+    progress_df1 = progressive_df(df1=pca_tsne_umap_df,
+                                  df2=hdbs_e,
+                                  outname=f'Coordinates_TMT_{dataset}',
+                                  how='inner')
     # HDBSCAN framework on UMAP.d1 and UMAP.d2
     umap_cols = progress_df1.filter(regex=r'^UMAP.+2c$').columns.to_list()
     umap_coords = progress_df1.loc[:, umap_cols]
-    hdbs_u, stats_u, persistence_u, sum_e = hdbscan_workflow(umap_coords,
-                                                             dataset,
-                                                             'UMAP',
-                                                             3, epsilon,
-                                                             min_size,
-                                                             min_sample)
+    hdbs_u, stats_u, persistence_u, sum_e = hdbscan_workflow(df=umap_coords,
+                                                             dataset=dataset,
+                                                             dftype='UMAP',
+                                                             offset=3,
+                                                             epsilon=epsilon,
+                                                             min_size=min_size,
+                                                             min_sample=min_sample)
     # progressive dataframe pca + tsne + umap + hdbscan_tmt + hdbscan_umap
-    progress_df2a = progressive_df(progress_df1, hdbs_u,
-                                  f'Coordinates_UMAP_{dataset}',
-                                  'inner', anot=annotations_df)
+    progress_df2a = progressive_df(df1=progress_df1,
+                                  df2=hdbs_u,
+                                  outname=f'Coordinates_UMAP_{dataset}',
+                                  how='inner',
+                                  anot=annotations_df)
 
-    #   ---  identifying acc shared by euc and man clusters    ---   #
-    progress_df2b, clst_df = lopit_utils.get_shared_clusters(progress_df2a,
-                                               'hdb_labels_euclidean_TMT',
-                                               'hdb_labels_manhattan_TMT',
-                                                             dataset)
-
-    #  --- mapping markers onto hdb predictions ---   #
-    if 'marker' in progress_df2b.columns.to_list():
-        progress_df2c = predominant_marker_mmapper(progress_df2b,
-                                    'hdb_labels_euclidean_TMT')
-        progress_df3 = predominant_marker_mmapper(progress_df2c,
-                                    'hdb_labels_manhattan_TMT')
+    #  --- mapping markers onto hdbscan predictions ---   #
+    if 'marker' in progress_df2a.columns.to_list():
+        progress_df2b = predominant_marker_mmapper(df=progress_df2a,
+                                    hdbscan_colname='hdb_labels_euclidean_TMT')
+        progress_df3 = predominant_marker_mmapper(df=progress_df2b,
+                                    hdbscan_colname='hdb_labels_manhattan_TMT')
     else:
-        progress_df3 = progress_df2b.copy(deep=True)
+        progress_df3 = progress_df2a.copy(deep=True)
 
     #   --- df by user defined group with tmt and coordinates   ---   #
-    progress_df4 = progressive_df(df_slice, progress_df3,
-                                  f'Coordinates_ALL_{dataset}',
-                                  'inner', verbosity=True)
+    progress_df4 = progressive_df(df1=df_slice,
+                                  df2=progress_df3,
+                                  outname=f'Coordinates_ALL_{dataset}',
+                                  how='inner',
+                                  verbosity=True)
 
     if projections_enabled:
         print('Creating projections')
         #   --- HDBSCAN cluster projections  --  #
         if markers_map.empty:
-            myloop = create_myloop(perplexity, hdbscan_on_umap, pca,
-                                   '')
+            myloop = create_myloop(perplexity=perplexity,
+                                   add_umap=hdbscan_on_umap,
+                                   pca=pca,
+                                   marker_info='')
         else:
-            myloop = create_myloop(perplexity, hdbscan_on_umap, pca,
-                                   'marker', True)
+            myloop = create_myloop(perplexity=perplexity,
+                                   add_umap=hdbscan_on_umap,
+                                   pca=pca,
+                                   marker_info='marker',
+                                   pred=True)
 
-        projections_on_coordinates = projections(progress_df3, dataset,
-                                                 (10, 50), myloop)
+        projections_on_coordinates = projections(odf=progress_df3,
+                                                 dataset=dataset,
+                                                 sizes=(10, 50),
+                                                 loop_dic=myloop)
 
         newdir = gr.new_dir(f'TMT_abundance_by_cluster')
         os.chdir(newdir)
         for key in myloop.keys():
             print(f'working on {key}')
-            a = gr.dist_abundance_profile_by_cluster(progress_df4, key[0],
-                                                     dataset)
-        os.chdir('../..')
+            a = gr.dist_abundance_profile_by_cluster(df=progress_df4,
+                                                     labels=key[0],
+                                                     dataset=dataset)
+        os.chdir('..')
 
     # #   ---  df integration with protein features  ---  #
     if not features_df.empty:
         print('Integration of protein features to main dataframe')
-        integrated_df = df_integration(progress_df4, features_df,
-                                       dataset)
+        integrated_df = df_integration(df1=progress_df4,
+                                       df2=features_df,
+                                       dataset=dataset)
         if feature_projection:
             print('Creating feature projections')
             #   ---   Feature projections   ---   #
-            feat_tsne = feature_projections(integrated_df,
-                                            f'tSNE_dim_1_2c_{perplexity}',
-                                            f'tSNE_dim_2_2c_{perplexity}',
-                                            dataset,
-                                            'tSNE',
-                                            features_loop)
-            feat_umap = feature_projections(integrated_df,
-                                            'UMAP_dim1_2c',
-                                            'UMAP_dim2_2c',
-                                            dataset,
-                                            'UMAP',
-                                            features_loop)
+            feat_tsne = feature_projections(df=integrated_df,
+                                            coord1=f'tSNE_dim_1_2c_{perplexity}',
+                                            coord2=f'tSNE_dim_2_2c_{perplexity}',
+                                            dataset=dataset,
+                                            c_type='tSNE',
+                                            dic=features_loop)
+            feat_umap = feature_projections(df=integrated_df,
+                                            coord1='UMAP_dim1_2c',
+                                            coord2='UMAP_dim2_2c',
+                                            dataset=dataset,
+                                            c_type='UMAP',
+                                            dic=features_loop)
         #
     else:
         integrated_df = progress_df4.copy(deep=True)
@@ -896,8 +965,10 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     # #   ---  df integration with annotations  ---  #
     if not annotations_df.empty:
         print('Adding accessory information provided')
-        final_merged = pd.merge(integrated_df, annotations_df,
-                                on='Accession', how='left')
+        final_merged = pd.merge(integrated_df,
+                                annotations_df,
+                                on='Accession',
+                                how='left')
         fpath = os.path.join(os.getcwd(),
                              f'Final_df_{dataset}.AccessoryInfo.tsv')
         final_merged.to_csv(fpath, sep='\t', index=False)
@@ -909,7 +980,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     # *-*-* garbage collection *-*-* #
     collected = gc.collect()
     print(f'{collected} garbage objects were collected')
-    return clst_df
+    return
 
 
 def cluster_analysis(files_list, features, datasets, tsne_method,
@@ -965,7 +1036,7 @@ def cluster_analysis(files_list, features, datasets, tsne_method,
 #   ---   Execute   ---   #
 if __name__ == '__main__':
     single_dfs = glob.glob(
-        "D:\PycharmProjects\LOPIT\Frames_ready_for_clustering\\test*.tsv")
+        "D:\\PycharmProjects\\LOPIT\\Frames_ready_for_clustering\\test*.tsv")
     # os.path.isfile()
     markers_file = sys.argv[1]  # 'markers.tsv'
     features = pd.read_csv(sys.argv[2], sep='\t', header=0)
