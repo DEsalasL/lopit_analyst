@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from itertools import combinations
-from lopit_utils import colors as mycolors
+from lopit_utils import colors as mycolors, legend_box_location
 
 
 def new_dir(experiment):
@@ -26,16 +26,19 @@ def plot_umap(embed, experiment, dimensions):
     loop_list = list(combinations(dimensions, 2))
     for coordinates in loop_list:
         x, y = coordinates
-        vals = embed.marker.to_list()
-        sns.scatterplot(x=x, y=y, data=embed, hue=vals,
-                        palette=sns.color_palette(mycolors,
-                                                  len(set(set(vals)))),
-                        size='marker', sizes=(10, 10)
-                        ).set(title=f'{experiment} UMAP projection')
+        marker = embed.marker.to_list()
+        numb_colors = len(set(marker))
+        plt.figure(figsize=(10, 6))
+        t = sns.scatterplot(x=x, y=y, data=embed, hue=marker,
+                            palette=sns.color_palette(mycolors,
+                                                  numb_colors),
+                            size=4, sizes=(10, 10))
+        t.set(title=f'{experiment} UMAP projection')
+        legend_box_location()
         plt.savefig(f'{experiment}_{x}{y}.plot.pdf')
         plt.cla()
         plt.close()
-    os.chdir('../..')
+    os.chdir('..')
     return 'Done'
 
 
@@ -51,20 +54,21 @@ def plot_tsne(df, dataset, components, perplex):
     else:
         vals = df.marker.to_list()
         numb_colors = len(set(vals))  # number of compartments
+        plt.figure(figsize=(10, 6))
         t = sns.scatterplot(x=f'tSNE_dim_1_2c_{perplex}',
                             y=f'tSNE_dim_2_2c_{perplex}', data=df,
                             hue='marker',
                             palette=sns.color_palette(mycolors,
                                                       numb_colors),
-                            size=4, sizes=(4, 4))
+                            size=4, sizes=(10, 10))
     t.set(title=f'{dataset} T-SNE projection')
-    sns.move_legend(t, loc='upper right', bbox_to_anchor=(1.18, 1.1),
-                    fontsize=4)
+    legend_box_location()
     plt.savefig(f'{dataset}_t-SNE.plot_{components}c_{perplex}.pdf')
     plt.cla()
     plt.close()
-    os.chdir('../..')
+    os.chdir('..')
     return 'Done'
+
 
 
 def scree_plot(explained_variance_ratio, pc_list, dataset):
@@ -119,20 +123,19 @@ def boxplot(cluster_persistence, dataset):
 
 
 def projection(data, x, y, hue, size, sizes, dataset, palette, title):
-    plt.figure(figsize=(15, 10))
-    sns.set_theme(style='white', font_scale=1)
+    plt.figure(figsize=(10, 6))
+    # sns.set_theme(style='white', font_scale=1)
     # sns.color_palette(palette=palette)#, as_cmap=True)
-    clusters = sns.scatterplot(data=data, x=x, y=y, hue=hue, size=size,
-                               sizes=sizes, palette=palette)
-    clusters.legend(title=title.split('_')[1])
-    sns.move_legend(clusters, loc='upper right', bbox_to_anchor=(1.125, 1),
-                    fontsize=6)
-    plt.title(f'{dataset} clusters on {title} coords', fontsize=16)
+    sns.scatterplot(data=data, x=x, y=y, hue=hue, size=size,
+                               sizes=sizes, palette=palette).set(
+        title=f'{dataset} clusters on {title} coords')
+    # clusters.legend(title=title.split('_')[1])
     if '_' in x:
         x, y = ' '.join(x.split('_')), ' '.join(y.split('_'))
-    plt.xlabel(x, fontsize=16)
-    plt.ylabel(y, fontsize=16)
+    plt.xlabel(x, fontsize=10)
+    plt.ylabel(y, fontsize=10)
     title = title.replace(' ', '_')
+    legend_box_location()
     plt.savefig(f'{dataset}_hdbscan_clst_on_{title}_coords.pdf')
     plt.cla()
     plt.close()
