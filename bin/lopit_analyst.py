@@ -1,4 +1,4 @@
-''' #!/home/dsalas/.conda/envs/lopit_analyst_dev/bin/python '''
+'''/home/dsalas/miniforge3/envs/lopit_analyst_dev//bin/python'''
 import os
 import sys
 import charms
