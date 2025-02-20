@@ -235,7 +235,7 @@ dic_5 = {'-i': ['--input', str, other_ms['m16'], True],
          '-n': ['--n_neighbors', float, other_ms['m15u2'], False],
          '-u': ['--hdbscan_on_umap', bool, other_ms['m22'], False],
          '-a': ['--additional_file', str, other_ms['m10b'], False],
-         '-p': ['--pca', bool, other_ms['m31'], False],
+         '-p': ['--pca', bool, other_ms['m31'], True],
          '-fp': ['--feature_projection', str, other_ms['m33'], False],
          '-pe': ['--projections_enabled', str, other_ms['m34'], False],
          '-v': ['--verbose', bool, other_ms['m32'], False]}
