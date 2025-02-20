@@ -636,7 +636,7 @@ def marker_detection(masterdf, markerdf):
                                 inplace=True)
             new_master = pd.merge(masterdf, marker_df,
                                   on='Accession', how='left')
-            new_master['marker'].fillna('unknown', inplace=True)
+            new_master['marker'] = new_master['marker'].fillna('unknown')
             return new_master
     else:
         if 'marker' in masterdf.columns.to_list():
@@ -712,6 +712,7 @@ def traverse(infile, fileout, f_identificator, markers_file,
         fpath = os.path.join(os.path.abspath(infile), f)
         fpath = os.path.join(fpath, f_identificator)
         tfiles = glob.glob(f'{fpath}*.tsv')
+        print('current argument', tfiles)
 
         if len(tfiles) == 1:
             tf = tfiles[0]
