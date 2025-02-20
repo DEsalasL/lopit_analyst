@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import plotnine as p9
 import seaborn as sns
-import patchworklib as pw
 import matplotlib.pyplot as plt
 
 __author__ = 'Dayana E. Salas-Leiva'
@@ -87,9 +86,11 @@ def p9hist(odf, col1, col2, outname, binwidth, intercept,
         obj += p9.geom_vline(xintercept=intercept, linetype='dotted',
                              colour='red')
     obj += p9.labels.ggtitle(outname)
-    # save file to pdf
-    # obj.save(f'{outname}.gg2.pdf')
-    return obj
+    # saving to pdf with custom page size
+    custom_width, custom_height = lopit_utils.pdf_size(width=1, height=0.25)
+    outpath = os.path.join(os.getcwd(), f'{outname.replace(' ', '_')}.pdf')
+    obj.save(outpath, dpi=300, width=custom_width, height=custom_height)
+    return outpath
 
 
 def scatter_plot(odf, col1, col2, outname):
@@ -101,7 +102,11 @@ def scatter_plot(odf, col1, col2, outname):
                           colour='red')
     obj += p9.labels.ggtitle(outname)
     obj += p9.facet_wrap(facets='Experiment')
-    return obj
+    # saving to pdf with custom page size
+    outpath = os.path.join(os.getcwd(), f'{outname}.pdf')
+    custom_width, custom_height = lopit_utils.pdf_size(width=1, height=0.5)
+    obj.save(outpath, dpi=300, width=custom_width, height=custom_height)
+    return outpath
 
 
 def large_pivot_tab(odf, d, outname, out, psms=True, reconstituted=False):
@@ -184,8 +189,11 @@ def p9box(odf, tag_col, outname):
                     panel_grid_minor_y=p9.element_blank(),
                     plot_title=p9.element_text(size=14, face='bold'))
     obj += p9.labels.ggtitle(outname)
-    # obj.save(f'{outname}.Boxplot.gg2.pdf')
-    return obj
+    # save pdf to custom size pdf
+    custom_width, custom_height = lopit_utils.pdf_size(width=1, height=0.5)
+    outpath = os.path.join(os.getcwd(), f'{outname}.Boxplot.pdf')
+    obj.save(outpath, dpi=300, width=custom_width, height=custom_height)
+    return outpath
 
 
 def catplot(new_df, tag_col, outname):
@@ -211,13 +219,17 @@ def comparative_box_plots(list_w_dfs_tup, taginf, writeout):
     loaded_plots = []
     for entry in list_w_dfs_tup:
         df, prefix = entry
-        pivot_df = large_pivot_tab(df, taginf,
-                                   f'large_pivot_df_{prefix}',
-                                   writeout, True)
-        boxplot = p9box(pivot_df, taginf,
-                        'Tag Abundance by experiment - '
+        pivot_df = large_pivot_tab(odf=df,
+                                   d=taginf,
+                                   outname=f'large_pivot_df_{prefix}',
+                                   out=writeout,
+                                   psms=True,
+                                   reconstituted=False)
+        boxplot = p9box(odf=pivot_df,
+                        tag_col=taginf,
+                        outname='Tag Abundance by experiment - '
                         f'{prefix}-filtering')
-        loaded_plots.append(pw.load_ggplot(boxplot, figsize=(4, 4)))
+        loaded_plots.append(boxplot)
     return loaded_plots
 
 
@@ -230,7 +242,7 @@ def comparative_hist(list_w_dfs_tup, density, taginf):
                       f'TMT Abundance by Exp - {prefix}-filtering',
                       0.1, '', density, True,
                       True)
-        loaded_plots.append(pw.load_ggplot(hist, figsize=(4, 4)))
+        loaded_plots.append(hist)
     return loaded_plots
 
 
@@ -271,8 +283,13 @@ def trend(pvt, phenodata, tag_col, missing_cols):
     # faceted trend plot in a single file
     global_smooth = trend_plot(merged, 'Peptide.amount',
                                'Total.Abundance', 'Tag', tag_col)
-    global_smooth.save('P.All.Exp_PeptideAbund.trend.pdf')
-    return 'Done'
+
+    # saving to pdf with custom page size
+    custom_width, custom_height = lopit_utils.pdf_size(width=1, height=0.5)
+    outpath = os.path.join(os.getcwd(), f'P.All.Exp_PeptideAbund.trend.pdf')
+    global_smooth.save(outpath, dpi=300, width=custom_width,
+                       height=custom_height)
+    return outpath
 
 
 def tmt_by_exp(df, d, colname):
@@ -356,89 +373,131 @@ def run_diagnostics(psmfile, phenotypefile, density, writeout,
     #  ---  diagnostic density plots  ---  #
     #
     print('Generating plots ...')
-    mass_error = p9hist(pre_parsed_psm, 'Delta.M.in.ppm',
-                        'Experiment',
-                        'PSMs delta Masses in ppm', 0.05,
-                        '', density, False, True)
-    g1 = pw.load_ggplot(mass_error, figsize=(4, 5))
-    precursor_i_int = p9hist(pre_parsed_psm, 'Intensity',
-                             'Experiment', 'Intensity',
-                             0.05, '',
-                             density, True, True)
-    g2 = pw.load_ggplot(precursor_i_int, figsize=(4, 5))
-    isol_interf = p9hist(pre_parsed_psm,
-                         'Isolation.Interference.in.Percent',
-                         'Experiment',
-                         'Isolation Interference - (%)',
-                         5, 50, density,  False,
-                         True)
-    g3 = pw.load_ggplot(isol_interf, figsize=(4, 5))
-    sps_mass_matches = p9hist(pre_parsed_psm,
-                              'SPS.Mass.Matches.in.Percent',
-                              'Experiment',
-                              'SPS Mass Matches - (%)', 10,
-                              [45, 65], density, False, True)
-    g4 = pw.load_ggplot(sps_mass_matches, figsize=(4, 5))
-    signal_noise_ratio = p9hist(pre_parsed_psm, 'Average.Reporter.SN',
-                                'Experiment',
-                                'Average Reporter SN ratio',
-                                0.05, 5, density,
-                                True, True)
-    g5 = pw.load_ggplot(signal_noise_ratio, figsize=(4, 5))
-    ion_trap = p9hist(pre_parsed_psm, 'Ion.Inject.Time.in.ms',
-                       'Experiment', 'Ion Injection Time in ms',
-                       2, '', density, False,
-                       True)
-    g6 = pw.load_ggplot(ion_trap, figsize=(4, 5))
+    mass_error = p9hist(odf=pre_parsed_psm,
+                        col1='Delta.M.in.ppm',
+                        col2='Experiment',
+                        outname='PSMs delta Masses in ppm',
+                        binwidth=0.05,
+                        intercept='',
+                        density=density,
+                        transform=False,
+                        adjust=True)
+
+    precursor_i_int = p9hist(odf=pre_parsed_psm,
+                             col1='Intensity',
+                             col2='Experiment',
+                             outname='Intensity',
+                             binwidth=0.05,
+                             intercept='',
+                             density=density,
+                             transform=True,
+                             adjust=True)
+
+
+    isol_interf = p9hist(odf=pre_parsed_psm,
+                         col1='Isolation.Interference.in.Percent',
+                         col2='Experiment',
+                         outname='Isolation Interference',
+                         binwidth=5,
+                         intercept=50,
+                         density=density,
+                         transform=False,
+                         adjust=True)
+
+    sps_mass_matches = p9hist(odf=pre_parsed_psm,
+                              col1='SPS.Mass.Matches.in.Percent',
+                              col2='Experiment',
+                              outname='SPS Mass Matches',
+                              binwidth=10,
+                              intercept=[45, 65],
+                              density=density,
+                              transform=False,
+                              adjust=True)
+
+    signal_noise_ratio = p9hist(odf=pre_parsed_psm,
+                                col1='Average.Reporter.SN',
+                                col2='Experiment',
+                                outname='Average Reporter SN ratio',
+                                binwidth=0.05,
+                                intercept=5,
+                                density=density,
+                                transform=True,
+                                adjust=True)
+
+    ion_trap = p9hist(odf=pre_parsed_psm,
+                      col1='Ion.Inject.Time.in.ms',
+                      col2='Experiment',
+                      outname='Ion Injection Time in ms',
+                      binwidth=2,
+                      intercept='',
+                      density=density,
+                      transform=False,
+                      adjust=True)
+
 
     tot_tmt_df = tmt_by_exp(pre_parsed_psm, taginf,
-                            'TMT.Abundance.by.PSM')
-    tot_tmt_plot = p9hist(tot_tmt_df, 'TMT.Abundance.by.PSM',
-                          'Experiment',
-                          'TMT Abundance by Experiment - PSMs',
-                          0.1, '', density, True,
-                          True)
-    g7 = pw.load_ggplot(tot_tmt_plot, figsize=(4, 4))
+                            colname='TMT.Abundance.by.PSM')
+    tot_tmt_plot = p9hist(odf=tot_tmt_df,
+                          col1='TMT.Abundance.by.PSM',
+                          col2='Experiment',
+                          outname='TMT Abundance by Experiment-PSMs',
+                          binwidth=0.1,
+                          intercept='',
+                          density=density,
+                          transform=True,
+                          adjust=True)
 
-    rt_scatterplot = scatter_plot(pre_parsed_psm, 'RT.in.min',
-                                  'Delta.M.in.ppm',
-                                  'Retention time')
-    g10 = pw.load_ggplot(rt_scatterplot, figsize=(4, 4))
-
+    rt_scatterplot = scatter_plot(odf=pre_parsed_psm,
+                                  col1='RT.in.min',
+                                  col2='Delta.M.in.ppm',
+                                  outname='Retention time')
 
     #
     # # #  ---  diagnostic box plots  ---  #
-    #
+
     odf_copy = pre_parsed_psm.copy(deep=True)
-    pivot_df = large_pivot_tab(odf_copy, taginf, 'large_pivot_df',
-                               writeout, True)
-    boxplot = p9box(pivot_df, taginf, 'Tag Abundance by Experiment')
-    g8 = pw.load_ggplot(boxplot, figsize=(4, 4))
-    single_fig = lopit_utils.pw_object_layout([g8])[len([g8])]
-    _ = lopit_utils.rendering_figures(single_fig,
-                                      'TMT.Abundance.by.Exp.pdf')
+    pivot_df = large_pivot_tab(odf_copy,
+                               d=taginf,
+                               outname='large_pivot_df',
+                               out=writeout,
+                               psms=True,
+                               reconstituted=False)
+    boxplot = p9box(odf=pivot_df,
+                    tag_col=taginf,
+                    outname='Tag Abundance by Experiment')
+
     mis_cols = missing_cols_by_experiment(odf_copy)
     if not pre_parsed_pheno.empty:
         trendplot = trend(pivot_df, pre_parsed_pheno, taginf, mis_cols)
 
-        tmt = p9hist(pivot_df, 'Abundance', 'Experiment',
-                 'TMT Abundance by Experiment - notch artifact',
-                 0.05, '', density, True, True)
-        g9 = pw.load_ggplot(tmt, figsize=(4, 4))
+        tmt = p9hist(odf=pivot_df,
+                     col1='Abundance',
+                     col2='Experiment',
+                     outname='TMT Abundance by Experiment - notch artifact',
+                     binwidth=0.05,
+                     intercept='',
+                     density=density,
+                     transform=True,
+                     adjust=True)
+
     else:
         tmt = None
-        g9 = None
+        trendplot = None
 
     # --- rendering histograms
     if tmt is not None:
-        all_histograms = [g1, g2, g3, g4, g5, g6, g10, g7, g9]
+        all_histograms = [mass_error, precursor_i_int, isol_interf,
+                          sps_mass_matches, signal_noise_ratio, ion_trap,
+                          tot_tmt_plot, rt_scatterplot, trendplot, tmt, boxplot]
     else:
-        all_histograms = [g1, g2, g3, g4, g5, g6, g10, g7]
+        all_histograms = [mass_error, precursor_i_int, isol_interf,
+                          sps_mass_matches, signal_noise_ratio, ion_trap,
+                          tot_tmt_plot, rt_scatterplot, boxplot]
 
-    three_figs = lopit_utils.pw_object_layout(all_histograms
-                                              )[len(all_histograms)]
-    _ = lopit_utils.rendering_figures(three_figs,
-                                      'All_diagnostic_hist.pdf')
+    # create a single pdf from multiple pdfs
+    fileoutpath = os.path.join(os.getcwd(), f'All_diagnostic_hist.pdf')
+    _ = lopit_utils.merge_pdfs(all_histograms, outname=fileoutpath)
+
     os.chdir('../..')
     print('\n*** - End of diagnostics workflow - ***\n')
     # *-*-* garbage collection *-*-* #
