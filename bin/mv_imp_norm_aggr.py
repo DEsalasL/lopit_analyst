@@ -348,9 +348,14 @@ def venn(df):
     exp_dics = {}
     for i, group in df.groupby('Experiment')['Accession']:
         exp_dics[i] = set(group.tolist())
-    venny(exp_dics)
+    fig, ax = plt.subplots()  # Get the figure and axes objects
+    venny(exp_dics, ax=ax)  # Pass the axes object to venn
+
+    # Attempt to change font size
+    for text in ax.texts:
+        text.set_fontsize(5)  # Set desired font size
+
     plt.savefig(f"VennDiagram{'-'.join(labels)}.pdf")
-    # plt.show()
     plt.clf()
     plt.close()
     return 'Done'
@@ -620,8 +625,9 @@ def reconstitute_validation(df, reconstitute):
     valid = [exp for exp in exps_reconst if exp in all_exps]
     if len(exps_reconst) != len(valid):
         exps = set(all_exps).difference(set(exps_reconst))
-        print(f'Experiments {exps} are not in psms input data')
-        sys.exit(-1)
+        print(f'Experiments {exps} are absent in input data or \n'
+              f'experiment declaration is command line wrong \nExiting program')
+        sys.exit(1)
     return 'Done'
 
 
@@ -796,17 +802,17 @@ def imp_agg_normalize(psmfile, pheno_file, protein_file,
 
 #   ---   Execute   ---   #
 '''
-base = 'D:\PycharmProjects\LOPIT\Perkinsus_LOPIT_K\Data\\Nov_2021_Mascot\'
+base = 'D:\\PycharmProjects\\LOPIT\\Perkinsus_LOPIT_K\\Data\\Nov_2021_Mascot\'
 script.py <arg1> <arg2> <arg3> 
-arg1 = D:\PycharmProjects\LOPIT\filtered_df.pre-imputation.tsv 
+arg1 = D:\PycharmProjects\LOPIT\\filtered_df.pre-imputation.tsv 
 arg2 = base + \PL_pData.csv
 arg3 = base + kb601_20211127_PmarLOPIT_Mascot_multicon_Proteins.txt
 Arg4 = search engine, choose between Mascot or Sequest.HT 
 arg5 = write file True
 arg6 = reconstitution
-'D:\PycharmProjects\LOPIT\Step2__First_filter_2023621_162311_SequesHT_TK\df_PL1-PL2.tsv'
-'D:\PycharmProjects\LOPIT\PD3_run\PL_pData.csv'
-'D:\PycharmProjects\LOPIT\Pmar_KB_run_June19\Stand_alone_graphics\tmp\PL12_PLN12_PLO12_Proteins.txt' 
+df_PL1-PL2.tsv'
+PL_pData.csv'
+PL12_PLN12_PLO12_Proteins.txt' 
 
 Sequest.HT
 False
