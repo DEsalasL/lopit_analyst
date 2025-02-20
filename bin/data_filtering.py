@@ -171,10 +171,12 @@ def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
     boxplots = dia.comparative_box_plots(dfs_to_compare, taginf, fileout)
     histoplots = dia.comparative_hist(dfs_to_compare, density, taginf)
     comp_plots = boxplots + histoplots
-    my_plots = lopit_utils.pw_object_layout(comp_plots)[len(comp_plots)]
+
+    # create a single pdf from multiple pdfs
     print('Rendering plots ...')
-    _ = lopit_utils.rendering_figures(my_plots,
-                                      'Comparative_plots.filter1.pdf')
+    fileoutpath = os.path.join(os.getcwd(), 'Comparative_plots.filter1.pdf')
+    _ = lopit_utils.merge_pdfs(comp_plots, outname=fileoutpath)
+
     # *-*-* garbage collection *-*-* #
     collected = gc.collect()
     print(f'{collected} garbage objects were collected')
@@ -187,8 +189,8 @@ def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
 #  ---  Execute  ---  #
 '''
 script.py <original PSM from PD> <density: True or False>
-PSM = D:\PycharmProjects\LOPIT\Perkinsus_LOPIT_K\Data\
-PSM += \\Nov_2021_Mascot\kb601_20211127_PmarLOPIT_Mascot_multicon_PSMs.txt 
+PSM = D:\\PycharmProjects\\LOPIT\\Perkinsus_LOPIT_K\\Data\
+PSM += \\Nov_2021_Mascot\\kb601_20211127_PmarLOPIT_Mascot_multicon_PSMs.txt 
 density: False
 write file out: False
 outname: name to write out
