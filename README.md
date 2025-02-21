@@ -297,6 +297,8 @@ lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_protein_level/
                             --cluster_selection_epsilon 0.025 \
                             --min_size 6 \
                             --min_dist 0.25 \
+                            --pca True \
+                            --feature_projection True \
                             --markers_file Pmar_385markers.19359.12112024.capitalized.tsv \
                             --protein_features Formatted_input_data_Pmar/Pmar_formatted_protein_features.tsv
 ```
@@ -319,6 +321,8 @@ lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_peptide_level/
                             --cluster_selection_epsilon 0.025 \
                             --min_size 6 \
                             --min_dist 0.25 \
+                            --pca True \
+                            --feature_projection True \
                             --markers_file Pmar_385markers.19359.12112024.capitalized.tsv \
                             --protein_features Formatted_input_data_Pmar/Pmar_formatted_protein_features.tsv
 ```
