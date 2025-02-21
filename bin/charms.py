@@ -155,9 +155,9 @@ def sequence_properties(in_file, out_name, cmd, verbosity):
                     pf = pd.read_csv(dic['deeptmhmm'],
                                      sep='\t',
                                      header=0,
-                                     na_values=np.NAN)
+                                     na_values=np.nan)
                     pf['DeepTMHMM.predicted.TMs'] = pf[
-                        'DeepTMHMM.predicted.TMs'].replace(np.NAN, 0)
+                        'DeepTMHMM.predicted.TMs'].replace(np.nan, 0)
                     pf['DeepTMHMM.predicted.TMs'].astype('int')
                     f = add_tm_total(pf)
                 elif key == 'deeploc':
@@ -174,16 +174,16 @@ def sequence_properties(in_file, out_name, cmd, verbosity):
                     tmp = pd.read_csv(dic[key], sep=r'\t|,',
                                       header=0,
                                       dtype=datatypes,
-                                      na_values=np.NAN)
+                                      na_values=np.nan)
                     c = {'Protein_ID': 'Accession',
                          'Localizations': 'deeploc.localizations'}
                     tmp.rename(columns=c, inplace=True)
                     f = tmp.loc[:, ['Accession', 'deeploc.localizations']]
-                    f.replace(np.NAN, '', inplace=True)
+                    f.replace(np.nan, '', inplace=True)
                 else:
                     f = pd.read_csv(dic[key], sep='\t', comment='#',
-                                    names=headers[key], na_values=np.NAN)
-                    f.replace(np.NAN, 0, inplace=True)
+                                    names=headers[key], na_values=np.nan)
+                    f.replace(np.nan, 0, inplace=True)
             all_dfs.append(f)
         else:
             f = dic[key]
