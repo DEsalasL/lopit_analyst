@@ -1,6 +1,9 @@
 import os
 import re
 import sys
+
+from folium.utilities import deep_copy
+
 import lopit_utils
 import numpy as np
 import pandas as pd
@@ -118,8 +121,14 @@ def add_tm_total(df):
 
 def guessing_headers(file_in):
     names = ['Accession', 'phobius-TM', 'phobius-SP', 'phobius-Prediction']
-    ndf = pd.read_csv(file_in, sep=r'[ ]{1,}', skiprows=0, header=1,
-                      engine='python', names=names)
+    coltypes = ['str', 'int', 'str', 'str']
+    dtypes= dict(zip(names, coltypes))
+    ndf = pd.read_csv(file_in, sep=r'[ ]{1,}',
+                      skiprows=0,
+                      header=1,
+                      engine='python',
+                      names=names,
+                      dtype=dtypes)
     ndf.dropna(axis=1, how='all', inplace=True)
     clean_df = parse_phobius(ndf)
     return clean_df
@@ -128,8 +137,8 @@ def guessing_headers(file_in):
 def sequence_properties(in_file, out_name, cmd, verbosity):
     _ = lopit_utils.command_line_out('protein_features', **cmd)
 
-    df = pd.read_csv(in_file, sep=r'\t|\,', header=0,
-                     engine='python', na_values=['NA', ''])
+    df = pd.read_csv(in_file, sep=r'\t|,', header=0, engine='python',
+                     na_values=0)
 
     dic = dict(zip(df.Type, df.Path))
     all_dfs = []
@@ -143,17 +152,38 @@ def sequence_properties(in_file, out_name, cmd, verbosity):
                 elif key == 'tmhmm':
                     f = tmhmm_processing(df)
                 elif key == 'deeptmhmm':
-                    pf = pd.read_csv(dic['deeptmhmm'], sep='\t', header=0)
+                    pf = pd.read_csv(dic['deeptmhmm'],
+                                     sep='\t',
+                                     header=0,
+                                     na_values=np.NAN)
+                    pf['DeepTMHMM.predicted.TMs'] = pf[
+                        'DeepTMHMM.predicted.TMs'].replace(np.NAN, 0)
+                    pf['DeepTMHMM.predicted.TMs'].astype('int')
                     f = add_tm_total(pf)
                 elif key == 'deeploc':
-                    tmp = pd.read_csv(dic[key], sep=r'\t|,', header=0)
+                    datatypes = {'Protein_ID': 'str', 'Localizations': 'str',
+                                 'Signals': 'str', 'Cytoplasm': 'float64',
+                                 'Nucleus': 'float64', 'Plastid': 'float64',
+                                 'Extracellular': 'float64',
+                                 'Cell membrane': 'float64',
+                                 'Mitochondrion': 'float64',
+                                 'Endoplasmic reticulum': 'float64',
+                                 'Lysosome/Vacuole': 'float64',
+                                 'Golgi apparatus': 'float64',
+                                 'Peroxisome': 'float64'}
+                    tmp = pd.read_csv(dic[key], sep=r'\t|,',
+                                      header=0,
+                                      dtype=datatypes,
+                                      na_values=np.NAN)
                     c = {'Protein_ID': 'Accession',
                          'Localizations': 'deeploc.localizations'}
                     tmp.rename(columns=c, inplace=True)
                     f = tmp.loc[:, ['Accession', 'deeploc.localizations']]
+                    f.replace(np.NAN, '', inplace=True)
                 else:
                     f = pd.read_csv(dic[key], sep='\t', comment='#',
-                                    names=headers[key])
+                                    names=headers[key], na_values=np.NAN)
+                    f.replace(np.NAN, 0, inplace=True)
             all_dfs.append(f)
         else:
             f = dic[key]
@@ -213,7 +243,6 @@ def charm_prep(df, out):
         df.to_csv(f'{out}_formatted_protein_features.tsv', sep='\t',
                    index=False)
         return df
-
 
 def overlap(X1, Y1, X2, Y2):
     return (Y1 >= X2) & (Y2 >= X1)
@@ -294,8 +323,8 @@ def guess_boundaries(df):
         subdf['overlap'] = subdf['overlap'].replace({True: 1, False: 0})
         rec_df = pd.merge(ddf, subdf.loc[:, 'overlap'],
                           left_index=True, right_index=True,
-                          how='left').fillna(0)
-
+                          how='left')
+        rec_df['overlap'].fillna(0, inplace=True)
         # remove n-terminal TM predictions that overlap with SP from TM list
         rec_df['dummy_deepTMhelix'] = rec_df['deepTMhelix'].apply(tm_correction)
         rec_df['deepTMhelix.corr'] = np.where(rec_df['overlap'] == 1,
