@@ -19,17 +19,18 @@ conda create -n rapids-24.12 -c rapidsai -c conda-forge -c nvidia rapids=24.12 p
 ### 2. After step 1, install additional packages
 ```conda install -n rapids-24.12 <package>```
 packages required:
-- PyPDF2
 - dash
-- dask
 - hdbscan
-- matplotlib
 - umap-learn
-- missingno
+- missingno (v=0.5.2)
 - openpyxl
 - pypdf
 - seaborn
-- patchworklib (preferrable version ==0.6.2)
+- patchworklib
+- plotnine
+- natsort
+- venn
+- imbalanced-learn
 
 ### 3. Another way to create the environment is:
 ```conda create --name lopit_analyst --file requirements.txt```
