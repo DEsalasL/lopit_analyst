@@ -39,7 +39,7 @@ except ImportError:
 #  -- cluster projection parameters ---   #
 
 
-def create_myloop(perplexity, add_umap, pca, marker_info='', pred=False,):
+def create_myloop(perplexity, add_umap, pca, marker_info='', pred=False):
     if pca:
         param = [('PC1', 'PC2', 'PCA'),
                  (f'tSNE_dim_1_2c_{perplexity}', f'tSNE_dim_2_2c_{perplexity}',
@@ -277,6 +277,9 @@ def my_pca(df, dataset, comp):
         svd.fit(cdf)
         transformed_data = svd.transform(cdf)
         transformed_df = transformed_data.to_pandas()
+        ncolnames = {col: f'PC{int(col)+1}' for col
+                     in transformed_df.columns.to_list()}
+        transformed_df.rename(columns=ncolnames, inplace=True)
         transformed_df.to_csv(f'PCA_results_{dataset}.tsv',
                               sep='\t', index=True)
         os.chdir('..')
@@ -505,7 +508,8 @@ def my_hdbscan(df, metric, dataset, dftype, offset, epsilon, min_size,
 
 def check_label_len(df, label):
     vals = list(df[label].unique())
-    vals.remove('unknown')
+    if 'unknown' in vals:
+        vals.remove('unknown')
     vals = natsorted(vals)
     return vals
 
@@ -546,7 +550,7 @@ def projections(odf, dataset, sizes, loop_dic):
             _ = gr.projection(df, coord1, coord2, labels, probs, sizes,
                               dataset, custom_palette,
                               f'{dirname}_{distance}{labels}')
-            print('cwd', os.getcwd())
+
             os.chdir('..')
     return 'Done'
 
@@ -829,6 +833,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     if pca:
         #   ---   PCA framework   ---   #
         pca_99 = my_pca(df_slice, dataset, 0.99)
+
     else:
         pca_99 = None
     #   ---   tSNE framework   ---   #
@@ -955,7 +960,7 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
                                    add_umap=hdbscan_on_umap,
                                    pca=pca,
                                    marker_info='marker',
-                                   pred=True)
+                                   pred=False)
 
         projections_on_coordinates = projections(odf=progress_df3,
                                                  dataset=dataset,
