@@ -19,15 +19,16 @@ from matplotlib.colors import hex2color
 from natsort import index_natsorted, natsorted
 from sklearn.preprocessing import StandardScaler
 from lopit_utils import tmt_sorted_df
-
 try:
-    import rmm
+    import rmm, cudf
     from cuml.manifold import TSNE
     from cuml import UMAP
     from cuml.cluster import HDBSCAN
+    from cuml.decomposition import TruncatedSVD
     cuml = True
     sklearn = False
-    rmm.reinitialize(pool_allocator=True, managed_memory=True)
+    rmm.reinitialize(pool_allocator=True,
+                     managed_memory=True)
 except ImportError:
     sklearn = True
     cuml = False
@@ -247,29 +248,55 @@ def my_pca(df, dataset, comp):
     newdir = gr.new_dir(f'PCA')
     os.chdir(newdir)
     ndf = df.copy(deep=True)
-    #  getting a whitened PCA and projecting the PCs onto the matrix  #
-    pipeline = Pipeline([('scaling', StandardScaler()),
-                         ('pca', PCA(n_components=comp, svd_solver='full',
-                                     whiten=True))])
-    white_transformed_pca = pipeline.fit_transform(ndf)
-    # white_transformed_pca = PCA().fit_transform(ndf)
-    white_transformed_pc = pd.DataFrame(white_transformed_pca,
-                                        index=ndf.index)
-    newnames = {i: f'PC{i + 1}' for i in white_transformed_pc.columns.to_list()}
-    white_transformed_pc.rename(columns=newnames, inplace=True)
-    white_pca = gr.pca_plot(white_transformed_pc, f'{dataset}_whiten')
-    # --  getting eigenvalues and variance  ---
-    whitened_fit_pca = PCA(n_components=comp,
-                           whiten=True).fit(ndf)
-    explained_variance_ratio, weights, num_pc = variance_info(whitened_fit_pca)
-    pc_list = ['PC' + str(i) for i in list(range(1, num_pc + 1))]
-    #  --- scree plot and correlation matrix --- #
-    _ = gr.scree_plot(explained_variance_ratio, pc_list, dataset)
-    _ = gr.correlation_matrix_plot(ndf, dataset, pc_list, weights)
-    white_transformed_pc.to_csv(f'PCA_white_results_{dataset}.tsv',
-                                sep='\t', index=True)
-    os.chdir('..')
-    return white_transformed_pc
+    if cuml:
+        print('PCA via cuml')
+        cdf = cudf.DataFrame.from_pandas(ndf)
+        # Iterative approach to find optimal n_components
+        explained_variance_ratio_ = 0
+        n_components = 1
+        desired_variance = 0.99
+        # This loop stops when desired variance is reached or when the number of components
+        # is equal the number of features or rows.
+        while explained_variance_ratio_ < desired_variance and n_components < min(
+                cdf.shape):
+            svd = TruncatedSVD(n_components=n_components)
+            svd.fit(cdf)
+            explained_variance_ratio_ = svd.explained_variance_ratio_.sum()
+            n_components += 1
+
+        n_components -= 1  # adjust n_components for the last increment in the loop
+        svd = TruncatedSVD(n_components=n_components)
+        svd.fit(cdf)
+        transformed_data = svd.transform(cdf)
+        transformed_df = transformed_data.to_pandas()
+        transformed_df.to_csv(f'PCA_results_{dataset}.tsv',
+                              sep='\t', index=True)
+        os.chdir('..')
+        return transformed_df
+    else:
+        #  getting a whitened PCA and projecting the PCs onto the matrix  #
+        pipeline = Pipeline([('scaling', StandardScaler()),
+                             ('pca', PCA(n_components=comp, svd_solver='full',
+                                         whiten=True))])
+        white_transformed_pca = pipeline.fit_transform(ndf)
+        # white_transformed_pca = PCA().fit_transform(ndf)
+        white_transformed_pc = pd.DataFrame(white_transformed_pca,
+                                            index=ndf.index)
+        newnames = {i: f'PC{i + 1}' for i in white_transformed_pc.columns.to_list()}
+        white_transformed_pc.rename(columns=newnames, inplace=True)
+        white_pca = gr.pca_plot(white_transformed_pc, f'{dataset}_whiten')
+        # --  getting eigenvalues and variance  ---
+        whitened_fit_pca = PCA(n_components=comp,
+                               whiten=True).fit(ndf)
+        explained_variance_ratio, weights, num_pc = variance_info(whitened_fit_pca)
+        pc_list = ['PC' + str(i) for i in list(range(1, num_pc + 1))]
+        #  --- scree plot and correlation matrix --- #
+        _ = gr.scree_plot(explained_variance_ratio, pc_list, dataset)
+        _ = gr.correlation_matrix_plot(ndf, dataset, pc_list, weights)
+        white_transformed_pc.to_csv(f'PCA_white_results_{dataset}.tsv',
+                                    sep='\t', index=True)
+        os.chdir('..')
+        return white_transformed_pc
 
 
 # @profile
