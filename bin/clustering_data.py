@@ -239,6 +239,14 @@ def pc_99(explained_variance_ratio, pc_list, white_transformed_pc):  # not used
     return whittened_tranformed_pc_99
 
 
+def check_numeric(series):
+    """Checks if a Pandas Series contains any non-numeric values."""
+    for val in series:
+        if not isinstance(val, (int, float, np.number)):
+            return False
+    return True
+
+
 # @profile
 def my_pca(df, dataset, comp):
     '''
@@ -255,8 +263,8 @@ def my_pca(df, dataset, comp):
         explained_variance_ratio_ = 0
         n_components = 1
         desired_variance = 0.99
-        # This loop stops when desired variance is reached or when the number of components
-        # is equal the number of features or rows.
+        # `while loop` stops when desired variance is reached or when the
+        # number of components is equal the number of features or rows.
         while explained_variance_ratio_ < desired_variance and n_components < min(
                 cdf.shape):
             svd = TruncatedSVD(n_components=n_components)
@@ -807,6 +815,11 @@ def get_clusters(dfs_dic, dataset, markers_map, tsne_method, perplexity,
     newdir = gr.new_dir(f'{dataset}')
     os.chdir(newdir)
     df_slice = dfs_dic[dataset]
+    # ensure all TMT columns are the same type to avoid issues when transforming
+    # with cudf
+    dtypes = {col:'float64' for col in
+              df_slice.filter(regex='^TMT').columns.to_list()}
+    df_slice = df_slice.astype(dtypes)
 
     if markers_map.empty:  # mock dict
         markers = dict(zip(df_slice.index.values,
@@ -1026,6 +1039,7 @@ def cluster_analysis(files_list, features, datasets, tsne_method,
     if datasets == 'all':
         datasets = create_combinations(list(my_dfs.keys()))
         dfs_dic = dataset_grouping(my_dfs, datasets, 'all')
+
     else:
         dfs_dic = dataset_grouping(my_dfs, datasets, 'user_defined')
 
