@@ -394,6 +394,7 @@ def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args,
     try:
         df = pd.read_csv(filein, sep='\t', header=0, engine='python',
                          na_values=['NA', ''])
+        print(df.columns.to_list())
     except:
         print('file cannot be read as dataframe (it is likely the '
               'wrong file type). Exiting program')
@@ -915,11 +916,23 @@ def calculating_efficiency(df, exp):
         i = merged.loc[merged['modification'] == 'N-Term(TMTpro)'].index[0]
     except:
         i = merged.loc[merged['modification'] == 'N-Term(TMTplex)'].index[0]
-    merged.loc[i, 'Total.psms.with.aa'] = merged.loc[0, 'count']
-    merged.loc[i, '% efficiency'] = merged.loc[0, 'modif.freq']
+    all_psms = merged.loc[merged['modification'] == ('total '
+                                                            'PSMs')].index[0]
+    merged.loc[i, 'Total.psms.with.aa'] = merged.loc[all_psms, 'count']
+    merged.loc[i, '% efficiency'] = merged.loc[i, 'modif.freq']
     merged.fillna('', inplace=True)
+    # modifications sorting
+    mods = merged['modification'].to_list()
+    # sort df by index
+    if 'N-Term(TMTpro)' in mods  :
+        o = ['N-Term(TMTpro)', 'K(TMTpro)']
+    else:
+        o = ['N-Term(TMTplex)', 'K(TMTpro)']
+    e = [i for i in mods if i not in o]
+    sorted_i = o + e
     merged.set_index('modification', inplace=True)
-    return merged
+    sorted_df = merged.loc[sorted_i]
+    return sorted_df
 
 
 def aa_modifications(df, modifications):
