@@ -117,8 +117,22 @@ def unbalanced_train_test_split(df_data, train_size):
     return x_train, x_test, y_train, y_test
 
 
+def check_neighbors_and_sample(n_neighbors, markers_list, markers_dic, exp):
+    ml = markers_list.tolist()
+    m = {item: ml.count(item) for item in set(ml)}
+    offender = {}
+    for i in m.keys():
+        if m[i] <= n_neighbors:
+            offender[i] = m[i]
+    if offender:
+        translated = {markers_dic[k]: offender[k] for k in offender.keys()}
+        print(f'Not enough markers for smote {exp}:\n{translated}\n'
+              f'Exiting program')
+        sys.exit(1)
+
+
 def my_train_test_split(df_data, train_size,
-                        smote_type, neighbors):
+                        smote_type, neighbors, exp):
     tmt = df_data.filter(regex='^TMT').columns.to_list()
     ndf_data = df_data.loc[:, tmt + ['marker']]
 
@@ -131,6 +145,11 @@ def my_train_test_split(df_data, train_size,
     x, y = only_markers.iloc[:, : -1], only_markers.iloc[:, -1]
     # label encode the target variable
     y = LabelEncoder().fit_transform(y)
+
+    # make sure there are enough markers to balance the sampling classes
+    check_neighbors_and_sample(n_neighbors=neighbors, markers_list=y,
+                               markers_dic=inv_marker_dic, exp=exp)
+
     # # transform the dataset to balance the sampling classes
     # https://machinelearningmastery.com/smote-oversampling-for-imbalanced-clas
     # sification/
@@ -233,7 +252,8 @@ def svm_classification(df, train_size, accuracy_threshold,
     x_train, x_test, y_train, y_test = my_train_test_split(df,
                                                            train_size,
                                                            smote_type,
-                                                           neighbors)
+                                                           neighbors,
+                                                           exp=dataset)
     tmt_data, tmt_label = data_for_prediction(df)
     # Define model
     # tuning C and gamma
@@ -585,8 +605,12 @@ def markers_format(markersmap, balancing_method, dataset):
              f'good prediction:\n{l}\nAt least 6 markers by compartment should '
              f'be declared. This program will continue if there are at least 3 '
              'markers per compartment but predictions may be highly '
-             'inaccurate when data is largely unbalanced.\n'
-             '*******************')
+             'inaccurate when data is largely unbalanced. Warning: the '
+             'program will fail during smote in the Experiment subset if '
+             'samples to fit <= than the number n_neighbors:\n'
+             'case: n_neighbors = 3, n_samples_fit = 2, n_samples = 2\n'
+             'then it is best to eliminate the offender markers and re-run '
+             'the program *******************')
         print(m)
 
         if [l[i] for i in l.keys() if l[i] < 3]:  # if the list is not empty
