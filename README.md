@@ -139,6 +139,7 @@ lopit_analyst.py data_prep --data_type protein_features \
                            --input Sequence_properties.tsv  \
                            --out_name Pmar
 ```
+Note: the 'targetp-pred.corr' column considers target-p predictions and phopius predictions (e.g., if protein does not have 'targetp-pred' prediction but does have 'phobius-SP', then the value for 'phobius-SP' is kept)
 ### Outputs produced: 
 Within newly created ‘Formatted_input_data_Pmar’ directory:
 - Pmar_PD31_14082024_paper2_formatted_protein_features.tsv
@@ -380,3 +381,7 @@ if you are using an input that was not obtained with the current wokflow:
 2)	Your markers file can be global or local (see markers file format 
       section). This file is important when dealing with prediction of multiple 
       lopit maps
+### IMPORTANT:
+**If SML classifications are overpredicting classes**:
+
+This is likely an indicative that you are not providing enough markers as there might be unaccounted clusters to be classified. how to solve this? use hierarchical clustering and color the clusters by similarity, then generate parallel plots and see the abundance distribution profiles for these and identify if there is more than one 'population' of abundance distribution profiles. if that's the case, then it means that you need to tease appart these different abundance distribution profiles and redo the sml classification with a new set of markers that considers markers for the newly identified population of profiles.
