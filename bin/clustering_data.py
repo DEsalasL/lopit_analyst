@@ -523,7 +523,8 @@ def custom_color_dic(df, label):
         color_dic.update({'unknown': hex2color('#cab2d6')})
         return color_dic
     else:
-        print('Number of markers surpasses the color pallete in lopit_utils')
+        print('Number of marker classes surpasses the number of colors in the '
+              'palette (see lopit_utils lines 31-40)')
         sys.exit(-1)
 
 
@@ -766,9 +767,9 @@ def accessory_data(entry1, entry2, entry3, global_df):
         markers_map.marker.replace(' |-', '_', regex=True, inplace=True)
         markers_label = check_label_len(markers_map, 'marker')
         if len(markers_label) > 50:
-            print('Markers infile contains over 50 unique entries '
-                  '(markers + unknown).\nColor pallete for over 50 entries is '
-                  'not currently supported in lopit_utils (line 28).\n'
+            print('Markers file contains over 50 classes (unique compartments'
+                  ' + unknown).\nColor palette for over 50 classes is not '
+                  'currently supported in lopit_utils (lines 31-40).\n'
                   'Exiting program...')
             sys.exit(-1)
     else:
