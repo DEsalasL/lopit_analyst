@@ -1,7 +1,8 @@
-import glob
+import gc
 import os
 import re
 import sys
+import glob
 import warnings
 import lopit_utils
 import numpy as np
@@ -1602,8 +1603,8 @@ def parallel_prediction(dic_with_dfs, balance_method,
         sys.exit(-1)
     finally:
         # Force garbage collection to clean up resources
-        import gc
         gc.collect()
+    print('Program has finished')
     return
 
 
