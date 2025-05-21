@@ -1,14 +1,10 @@
 import os
 import re
 import sys
-
-from folium.utilities import deep_copy
-
 import lopit_utils
 import numpy as np
 import pandas as pd
 from functools import reduce
-
 
 
 
@@ -17,7 +13,7 @@ headers = {
     'signalp': ['Accession', 'signalp-pred', 'SP(Sec-SPI)', 'signalp-other',
            'signalp-CS-Position'],
     'targetp': ['Accession', 'targetp-pred', 'targetp-noTP', 'targetp-SP',
-           'targetp-mTP', 'targetp-CS-Position'],
+                'targetp-mTP', 'targetp-CS-Position'],
     'phobius': ['Accession', 'phobius-TM', 'phobius-SP', 'phobius-prediction'],
     'tmhmm': ['Accession', 'length', 'tmhmm-Exp', 'tmhmm-First60',
          'tmhmm-PredHel', 'tmhmm-Topology'],
@@ -161,7 +157,7 @@ def sequence_properties(in_file, out_name, cmd, verbosity):
                     pf['DeepTMHMM.predicted.TMs'].astype('int')
                     f = add_tm_total(pf)
                 elif key == 'deeploc':
-                    datatypes = {'Protein_ID': 'str', 'Localizations': 'str',
+                    datatypes = {'ID': 'str', 'Location': 'str',
                                  'Signals': 'str', 'Cytoplasm': 'float64',
                                  'Nucleus': 'float64', 'Plastid': 'float64',
                                  'Extracellular': 'float64',
@@ -175,14 +171,24 @@ def sequence_properties(in_file, out_name, cmd, verbosity):
                                       header=0,
                                       dtype=datatypes,
                                       na_values=np.nan)
-                    c = {'Protein_ID': 'Accession',
-                         'Localizations': 'deeploc.localizations'}
+                    c = {'ID': 'Accession',
+                         'Location': 'deeploc.location'}
                     tmp.rename(columns=c, inplace=True)
-                    f = tmp.loc[:, ['Accession', 'deeploc.localizations']]
+                    f = tmp.loc[:, ['Accession', 'deeploc.location']]
                     f.replace(np.nan, '', inplace=True)
                 else:
-                    f = pd.read_csv(dic[key], sep='\t', comment='#',
-                                    names=headers[key], na_values=np.nan)
+                    if key == 'targetp':
+                        dtypes = {'Accession': 'str', 'targetp-pred': 'str'}
+                        f = pd.read_csv(dic[key], sep='\t', comment='#',
+                                        header=None, na_values=np.nan)
+                        names={i:header for i, header in enumerate(headers[key])}
+                        f.rename(columns=names, inplace=True)
+                        f = f.astype(dtypes)
+                    else:
+                        dtypes = {'Accession': 'str'}
+                        f = pd.read_csv(dic[key], sep='\t', comment='#',
+                                        names=headers[key], na_values=np.nan,
+                                        dtype=dtypes)
                     f.replace(np.nan, 0, inplace=True)
             all_dfs.append(f)
         else:
@@ -252,7 +258,7 @@ def tp_guesser(x):
     regex = re.compile('[:| .(,]')
     cs = regex.split(x)[3] if isinstance(x, str) else x
     cs = cs.split('-')[0] if isinstance(x, str) else x
-    if cs == '?':
+    if cs == '?' or cs == '':
         cs = 0
     return cs
 
