@@ -356,12 +356,16 @@ Within newly created ‘Step6__SML_predictions_Pmar_protein_level’:
 A new directory for each directory in Step5 is created containing:
 ### Maing output:
 - Final_df_<experiment_combination>.SML.Supervised.ML.tsv
-- Precision matrices and classification reports (precision, recall, f1-score, support):
-    - SVM.accuracy.estimations.xlsx	
-    - KNN.accuracy.estimations.xlsx
-    - Random_forest.accuracy.estimations.xlsx
-    - Naive_Bayes.accuracy.estimations.xlsx
-
+### Additional outputs
+- original and synthetic markers used during training, validation, and test:  
+  <experiment_combination>_original_and_synthetic_markers.tsv
+- Assessment metrics by experiment (precision, recall, f1-score, support):
+  SVM.<experiment_combination>.assessment.metrics.xlsx, 
+  KNN.<experiment_combination>.assessment.metrics.xlsx, 
+  RF.<experiment_combination>.assessment.metrics.xlsx, 
+  NB.<experiment_combination>.assessment.metrics.xlsx
+- Detailed probabilities for each method:
+  <experiment_combination>.probabilities.xlsx
 
 \# SML by master protein accession and psms sequence:
 ```
