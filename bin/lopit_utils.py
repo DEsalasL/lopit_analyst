@@ -379,6 +379,8 @@ def accesion_checkup(df1, df2, ftype='marker'):
                     print(f'There are accessions missing in the {ftype} file')
                 merged = compare_merge(df1.loc[:, ['tmp', 'Accession']], df2)
                 return merged
+            else:
+                return None
         else:  # accessions between df1 and df2 does not intersect
             print('There is no intersection between the two compared dfs')
             print('saving compared dfs for debugging.\nExiting program...')
@@ -971,6 +973,13 @@ def ecalculator(odf, bname):
 #   ---  shared clusters identification   ---   #
 
 
+def write_to_excel(dfs_dic, outname):
+    with pd.ExcelWriter(f'{outname}.xlsx') as out:
+        for key, df in dfs_dic.items():
+            df.to_excel(out, sheet_name=key)
+    return 'Done'
+
+
 def clusters_to_dic(odf, label):
     df = odf.copy(deep=True)
     metric = label.split('_')[-2]
@@ -1093,9 +1102,8 @@ def write_mydf(dfs_list, outname, hdbscan, cutoff, accessory_file):
     df = reduce(lambda left, right: pd.merge(left, right,
                                              on='Accession',
                                              how='left'), dfs_list)
-    fill_cols = ['SVM.prediction', 'KNN.prediction',
-                 'Random.forest.prediction', 'Naive.Bayes']
-
+    fill_cols = ['SVM.prediction.threshold', 'KNN.prediction.threshold',
+                 'RF.prediction.threshold', 'NB.prediction.threshold']
     # compute shared predictions and prepare final df
     pre_final_df = common_prediction(df, fill_cols, hdbscan, cutoff)
     # merge accessory file if passed
