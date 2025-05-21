@@ -210,26 +210,6 @@ def predict_compartments(args):  # workflow 7 subparser sml
     return predictions
 
 
-# def automated_analysis(args):  # workflow 6- subparser: full_analysis
-#     first_filter_df = filter_raw_data(args)
-#
-#     # update input argument for mv removal
-#     args.update({'input': first_filter_df})
-#     mv_removed_df = mv_removal(args)
-#
-#     # update input argument for imputation and aggregation
-#
-#     args.update({'input': mv_removed_df})
-#     imp_agg_df = impute_and_aggregate(args)
-#
-#     # update input argument for clustering
-#
-#     args.update({'input': imp_agg_df})
-#     clusters = cluster_data(args)
-#     _ = gc.collect()
-#     return clusters
-
-
 #   ---   Execute program   ---   #
 
 def main():
