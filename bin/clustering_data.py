@@ -1061,20 +1061,47 @@ def cluster_analysis(files_list, features, datasets, tsne_method,
                                                               additional_info,
                                                               global_df)
     #  clustering each dataset in parallel   #
-    all_clst = Parallel(n_jobs=-1)(delayed(get_clusters)
-                                          (dfs_dic, dataset, markers_map,
-                                           tsne_method, perplexity,
-                                           hdbscan_on_umap, features_df,
-                                           epsilon, mindist, min_size,
-                                           min_sample, n_neighbors,
-                                           annotations_df, pca,
-                                           feature_projection,
-                                           projections_enabled,
-                                           verbosity)
-                                   for dataset in datasets)
-    #  calculate shared clusters in files from all dfs_paths
-    #shared_clusters = lopit_utils.clusters_across_datasets(all_clst)
+    try:
+        njobs = os.cpu_count() - 1
+        with Parallel(n_jobs=njobs, return_as='generator') as parallel:
+            tasks = (delayed(get_clusters)
+                               (dfs_dic=dfs_dic,
+                               dataset=dataset,
+                               markers_map=markers_map,
+                               tsne_method=tsne_method,
+                               perplexity=perplexity,
+                               hdbscan_on_umap=hdbscan_on_umap,
+                               features_df=features_df,
+                               epsilon=epsilon,
+                               mindist=mindist,
+                               min_size=min_size,
+                               min_sample=min_sample,
+                               n_neighbors=n_neighbors,
+                               annotations_df=annotations_df,
+                               pca=pca,
+                               feature_projection=feature_projection,
+                               projections_enabled=projections_enabled,
+                               verbosity=verbosity)
+                     for dataset in datasets)
+            # execute tasks and force completion
+            list(parallel(tasks))
 
+    except KeyboardInterrupt:
+        print('\nProcessing interrupted by user. Cleaning up...')
+        raise
+    except ValueError as ve:
+        print(ve)
+        print('Exiting program...')
+        sys.exit(-1)
+    except Exception as e:
+        print(e)
+        print(f'An error occurred during parallel processing: {str(e)}')
+        raise
+    finally:
+        if 'parallel' in locals():
+            parallel.__exit__(None, None, None)
+        # force garbage collection to clean up resources
+        gc.collect()
     #   ---
     print('Clustering workflow has finished. Bye ;)')
     return 'Done'
