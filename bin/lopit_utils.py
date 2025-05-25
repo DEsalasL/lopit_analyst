@@ -853,6 +853,7 @@ def preparing_df(odf):
                                                   isinstance(x, list) else 0)
     ndf['Modif.unique'] = ndf['Modif'].apply(lambda x: list(set(x))
                                 if isinstance(x, list) else 'No modification')
+
     return ndf
 
 
@@ -925,11 +926,12 @@ def calculating_efficiency(df, exp):
     merged.fillna('', inplace=True)
     # modifications sorting
     mods = merged['modification'].to_list()
+
     # sort df by index
     if 'N-Term(TMTpro)' in mods  :
         o = ['N-Term(TMTpro)', 'K(TMTpro)']
     else:
-        o = ['N-Term(TMTplex)', 'K(TMTpro)']
+        o = ['N-Term(TMTplex)', 'K(TMTplex)']
     e = [i for i in mods if i not in o]
     sorted_i = o + e
     merged.set_index('modification', inplace=True)
