@@ -109,7 +109,8 @@ def check_neighbors_and_sample(n_neighbors, markers_list, markers_dic, exp):
         sys.exit(1)
 
 
-def create_sets(x, y, train_size, markers_acc, markers_dic, exp, btype):
+def create_sets(x, y, train_size, markers_acc, markers_dic, exp, btype,
+                m):
     # create training and test dataset for balanced classes
 
     X_train, X_temp, Y_train, Y_temp = train_test_split(x,
@@ -118,7 +119,6 @@ def create_sets(x, y, train_size, markers_acc, markers_dic, exp, btype):
                                                         random_state=42,
                                                         stratify=y)
 
-    print(f'Total makers used for training: {len(Y_train)}')
     # get original and synthetic markers for training
     train_markers = original_n_synthetic_markers(df=markers_acc,
                                                  x_array=X_train,
@@ -134,7 +134,6 @@ def create_sets(x, y, train_size, markers_acc, markers_dic, exp, btype):
                                                     stratify=Y_temp)
 
     # get original and synthetic markers for validation
-    print(f'Total makers used for validation: {len(Y_val)}')
     markers_acc_subset1 = markers_acc[~markers_acc.Accession.isin(
         train_markers['accessions'])]
 
@@ -145,8 +144,6 @@ def create_sets(x, y, train_size, markers_acc, markers_dic, exp, btype):
                                                used_in='validation')
 
     # get original and synthetic markers for validation
-    print(f'Total makers used for test: {len(Y_test)}')
-
     markers_acc_subset2 = markers_acc_subset1[
         ~markers_acc_subset1.Accession.isin(val_markers['accessions'])]
 
@@ -163,6 +160,11 @@ def create_sets(x, y, train_size, markers_acc, markers_dic, exp, btype):
         mdf.to_csv(f'{exp}_original_and_synthetic_markers.tsv',
                sep='\t', index=False)
     mdf.drop(columns='compartment', inplace=True)
+    if m != '':
+        m += f'Total makers used for training-{exp}: {len(Y_train)}\n'
+        m +=f'Total makers used for validation-{exp}: {len(Y_val)}\n'
+        m += f'Total makers used for test-{exp}: {len(Y_test)}\n'
+        print(m)
     return mdf
 
 
@@ -215,68 +217,20 @@ def my_train_test_split(df_data, train_size,
         mdf = create_sets(x=x, y=y, train_size=train_size,
                           markers_acc=markers_acc, exp=exp,
                           markers_dic=inv_marker_dic,
-                          btype='unbalanced')
-        print(mdf.head())
-        print(mdf.shape)
+                          btype='unbalanced',
+                          m='')
     else:
         final_markers = len(y)
         synthetic_markers = final_markers - starting_markers
-        print(f'Total original markers: {starting_markers}')
-        print(f'Total synthetic markers: {synthetic_markers}')
-        print(f'Total original plus synthetic markers: {final_markers}')
-        # # create training and test dataset for balanced classes
-        # X_train, X_temp, Y_train, Y_temp = train_test_split(x,
-        #                                                     y,
-        #                                                     test_size=train_size,
-        #                                                     random_state=42,
-        #                                                     stratify=y)
-        # print(f'Total makers used for training: {len(Y_train)}')
-        # # get original and synthetic markers for training
-        # train_markers = original_n_synthetic_markers(df=markers_acc,
-        #                                              x_array=X_train,
-        #                                              y_array=Y_train,
-        #                                              marker_dic=inv_marker_dic,
-        #                                              used_in='training')
-        #
-        # # split X_temp and Y_temp into validation and test dataset
-        # X_val, X_test, Y_val, Y_test = train_test_split(X_temp,
-        #                                                 Y_temp,
-        #                                                 test_size=0.5,
-        #                                                 random_state=42,
-        #                                                 stratify=Y_temp)
-        #
-        # # get original and synthetic markers for validation
-        # print(f'Total makers used for validation: {len(Y_val)}')
-        # markers_acc_subset1 = markers_acc[~markers_acc.Accession.isin(
-        #                                         train_markers['accessions'])]
-        #
-        # val_markers = original_n_synthetic_markers(df=markers_acc_subset1,
-        #                                            x_array=X_val,
-        #                                            y_array=Y_val,
-        #                                            marker_dic=inv_marker_dic,
-        #                                            used_in='validation')
-        #
-        # # get original and synthetic markers for validation
-        # print(f'Total makers used for test: {len(Y_test)}')
-        #
-        # markers_acc_subset2 = markers_acc_subset1[
-        #     ~markers_acc_subset1.Accession.isin(val_markers['accessions'])]
-        #
-        # test_markers = original_n_synthetic_markers(df=markers_acc_subset2,
-        #                                             x_array=X_test,
-        #                                             y_array=Y_test,
-        #                                             marker_dic=inv_marker_dic,
-        #                                             used_in='testing')
-        # # reconstituted markers df
-        # mdf = pd.concat([train_markers['segregated markers'],
-        #                       val_markers['segregated markers'],
-        #                       test_markers['segregated markers']], axis=0)
-        # mdf.to_csv(f'{exp}_original_and_synthetic_markers.fitted.tsv',
-        #            sep='\t', index=False)
-        # mdf.drop(columns='compartment', inplace=True)
+        m = f'Total original markers-{exp}: {starting_markers}\n'
+        m+=f'Total synthetic markers-{exp}: {synthetic_markers}\n'
+        m+=f'Total original plus synthetic markers-{exp}: {final_markers}\n'
+
+        # create training and test dataset for balanced classes
         mdf = create_sets(x=x, y=y, train_size=train_size,
                           markers_acc=markers_acc, exp=exp,
-                          markers_dic=inv_marker_dic, btype='balanced')
+                          markers_dic=inv_marker_dic, btype='balanced',
+                          m=m)
     return inv_marker_dic,  dir_marker_dic, mdf
 
 
@@ -298,10 +252,11 @@ def data_for_prediction(df, utype):
 
 
 def prediction_on_data(model, unseen_data, accessions, pred_type,
-                       thresholds, dirmarker):
+                       thresholds, dirmarker, dataset):
 
     # Apply thresholds to the unseen data
-    print('prediction on unseen data. Data size:', unseen_data.shape)
+    print(f'{pred_type}-prediction on unseen data. Data size - {dataset}:',
+          unseen_data.shape)
 
     prob_pred = predict_n_apply_thresholds(X_data=unseen_data,
                                            thresholds=thresholds,
@@ -785,8 +740,8 @@ def calibrate_classifier(prediction_type, parameters, dataset):
     # extract parameters
     base_params, calibration_params = extract_parameters(params_dic=parameters,
                                                          sep='__')
-    print(f'{dataset}-base parameters for {prediction_type}:\n', base_params)
-    print(f'{dataset}-calibration parameters for {prediction_type}:\n',
+    print(f'Base parameters for {prediction_type}-{dataset}:\n', base_params)
+    print(f'Calibration parameters for {prediction_type}-{dataset}:\n',
           calibration_params)
     # create base classifier and apply parameters
     if prediction_type == 'KNN':
@@ -874,7 +829,8 @@ def prediction_workflow(model, dataset,
                              accessions=tmt_accession,
                              pred_type=pred_type,
                              thresholds=thresholds,
-                             dirmarker=inv_marker_dic)
+                             dirmarker=inv_marker_dic,
+                             dataset=dataset)
     report_cols = ['Accession',
                    f'{pred_type}.probability',
                    f'{pred_type}.prediction.no.threshold',
@@ -910,7 +866,7 @@ def df_to_array(df, suffix, used_in):
 
 def bespoke_classification(training_info, accuracy_threshold,
                        dataset, pred_type, tmt_data, tmt_accession, verbosity):
-    print(f'*** {pred_type} information for {dataset} ***')
+
     # training information, inv and dir marker dics and marker df
     inv_marker_dic,  dir_marker_dic, markers_df = training_info
     train_info = df_to_array(df=markers_df, suffix='train', used_in='training')
@@ -922,7 +878,7 @@ def bespoke_classification(training_info, accuracy_threshold,
                                         y_train=train_info['y_train'],
                                         mdl_type=pred_type)
     if pred_type == 'SVM':
-        print(f'{dataset}-best parameters for {pred_type}:\n {best_params}')
+        print(f'Best parameters for {pred_type}-{dataset}:\n {best_params}')
 
     #  define model: using the best parameters
     model = initialize_model(pred_type=pred_type, params=best_params,
@@ -1374,23 +1330,24 @@ def markers_format(markersmap, balancing_method, dataset):
              'samples to fit <= than the number n_neighbors:\n'
              'case: n_neighbors = 3, n_samples_fit = 2, n_samples = 2\n'
              'then it is best to eliminate the offender markers and re-run '
-             'the program.\n ********** end of WARNING **********')
+             'the program.\n ********** end of WARNINGS **********')
         print(m)
 
         if [l[i] for i in l.keys() if l[i] < 3]:  # if the list is not empty
             m = f'{dataset}:\n. Exit program due to lack of markers:\n{l}'
             print(m)
     else:
-        msize = {tup: d[tup] for tup in d.keys() if d[tup] > 50
+        msize = {tup: d[tup] for tup in d.keys() if d[tup] > 200
                  if tup != 'unknown'}
         if balancing_method != 'unbalanced' and len(msize) > 0:
             m = ('***   WARNING   ***\n'
-                 f'{dataset}:\nThere are more than 50 many markers at least '
-                 f'in one class/comparment\n{msize}\n'
-                 f'Note: \n'
-                 '1) The unbalanced method might be very inaccurate\n'
-                 '2) Specify the unbalanced method for classification\n'
-                 'Exiting program...\n'
+                 f'{dataset}:\nThere are more than 200 markers in at least '
+                 f'one class (compartment)\n{msize}\n'
+                 f'Note:\n'
+                 'To bypass this warning you must specify the unbalanced method '
+                 'for classification.\nHowever, such a method will likely '
+                 'result in highly inaccurate results caused by the '
+                 'marker disproportion\nExiting program...\n'
                  '*** end of WARNING   ***')
             print(m)
             sys.exit(-1)
@@ -1482,6 +1439,18 @@ def traverse(infile, fileout, f_identificator, markers_file,
     os.chdir(newdir)
     available_dirs = [f.path for f in os.scandir(infile) if f.is_dir()]
     print('available dirs', available_dirs)
+
+    # does the target file exist?:
+    fin_dir = {d: glob.glob(f'{d}/{f_identificator}*.tsv') for d in
+               available_dirs}
+
+    miss_files = [k for k in fin_dir.keys() if len(fin_dir[k]) == 0]
+    if miss_files:
+            print(f"\n*** WARNING ***\nNo file prefixed with "
+                  f"'{f_identificator}' found in the following "
+                  f"directories:\n{miss_files}. "
+                  f"Exiting program...")
+            sys.exit(-1)
 
     # checking markers
     if markers_type == 'global':
@@ -1576,7 +1545,7 @@ def parallel_prediction(dic_with_dfs, balance_method,
     else:
         acc_file = None
 
-    #  clustering each dataset in parallel
+    #  predict each dataset in parallel
     try:
         njobs = os.cpu_count() - 1
         with Parallel(n_jobs=njobs, return_as='generator') as parallel:
@@ -1593,16 +1562,20 @@ def parallel_prediction(dic_with_dfs, balance_method,
             # execute tasks and force completion
             list(parallel(tasks))
 
+    except (KeyboardInterrupt, Exception) as e:
+        print('\nProcessing interrupted by user. Cleaning up...')
+        raise
     except ValueError as ve:
         print(ve)
         print('Exiting program...')
         sys.exit(-1)
     except Exception as e:
-        print(e)
-        print('Exiting program...')
-        sys.exit(-1)
+        print(f'An error occurred during parallel processing: {str(e)}')
+        raise
     finally:
-        # Force garbage collection to clean up resources
+        if 'parallel' in locals():
+            parallel.__exit__(None, None, None)
+        # force garbage collection to clean up resources
         gc.collect()
     print('Program has finished')
     return
