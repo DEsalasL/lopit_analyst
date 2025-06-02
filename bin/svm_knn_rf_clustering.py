@@ -1,3 +1,4 @@
+
 import gc
 import os
 import re
@@ -30,7 +31,7 @@ from sklearn.metrics import (classification_report, multilabel_confusion_matrix,
                              accuracy_score, precision_recall_curve, roc_curve,
                              precision_score, recall_score, f1_score)
 
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 0 = all messages, 1 = INFO, 2 = WARNING, 3 = ERROR
+acceleration= 'CPU'
 
 
 sml_cols = ['SVM.prediction', 'KNN.prediction', 'Random.forest.prediction',
@@ -290,6 +291,7 @@ def possible_duplicates(df, col, max_value, prediction_type, marker_dic):
 
 
 def hyperparameter_tuning(x_train, y_train, mdl_type):
+
     if mdl_type == 'SVM':
         param = {'C': [0.001, 0.01, 0.1, 1, 10, 100],
                  'gamma': ['scale', 'auto', 1, 0.1, 0.01, 0.001, 0.0001,
@@ -299,8 +301,12 @@ def hyperparameter_tuning(x_train, y_train, mdl_type):
                  'decision_function_shape': ['ovr']}
 
         grid = GridSearchCV(svm.SVC(probability=True),
-                                    param_grid=param, cv=5,
-                                    refit=True, scoring='f1_weighted',
+                                    param_grid=param,
+                                    cv=5,
+                                    refit=True,
+                                    scoring='f1_weighted',
+                                    n_jobs=1, # inside of a parallel job
+                                    pre_dispatch='all',
                                     verbose=0)
     elif mdl_type == 'KNN':
         # create base classifier and calibrate probability
@@ -877,6 +883,7 @@ def bespoke_classification(training_info, accuracy_threshold,
     best_params = hyperparameter_tuning(x_train=train_info['x_train'],
                                         y_train=train_info['y_train'],
                                         mdl_type=pred_type)
+
     if pred_type == 'SVM':
         print(f'Best parameters for {pred_type}-{dataset}:\n {best_params}')
 
@@ -1134,6 +1141,7 @@ def changing_preexisting_colnames(df, markers_info):
 def supervised_clustering(directory, odf, markers_df, train_size,
                           accuracy_threshold, smote_type, neighbors,
                           outname, accessory_file, verbosity):
+
     # combination
     comb = os.path.split(directory)[-1]
     # create and move into the new directory
@@ -1144,7 +1152,9 @@ def supervised_clustering(directory, odf, markers_df, train_size,
         pass
 
     dataset = os.path.split(directory)[-1]
-    print(dataset)
+
+    print(f'-***- Prediction on dataset {dataset} has started-***-')
+
     os.chdir(directory)
     # sml classification
     print('Beginning of supervised learning classification ...')
@@ -1244,7 +1254,8 @@ def supervised_clustering(directory, odf, markers_df, train_size,
     else:
         _ = wrapping_up(df, reconsted_df, markers_df[comb], outname, acc_file)
 
-    return 'Done'''
+    print(f'-***- Prediction on dataset {dataset} has finished -***-')
+    return 'Done'
 
 
 def marker_checkup(entry, balancing_method, mtype, avail_dirs):
@@ -1539,15 +1550,17 @@ def traverse(infile, fileout, f_identificator, markers_file,
 
 
 def parallel_prediction(dic_with_dfs, balance_method,
-                        markers_df, afile, verbosity):
-    if afile is not None and os.path.isfile(afile):
-        acc_file = pd.read_csv(afile, sep='\t', header=0)
-    else:
-        acc_file = None
-
-    #  predict each dataset in parallel
+                        markers_df, afile, acc_file, verbosity):
+    print('Starting parallel prediction on CPUs')
     try:
-        njobs = os.cpu_count() - 1
+        t = len(dic_with_dfs.keys())
+        if t > os.cpu_count():
+            print('Not enough CPUs available to enable parallel prediction.'
+                  'A single CPU will be serially used.')
+            njobs = 1
+        else:
+            njobs = t + 1
+
         with Parallel(n_jobs=njobs, return_as='generator') as parallel:
             tasks = (delayed(supervised_clustering)
                                        (directory, dic_with_dfs[directory],
@@ -1577,8 +1590,47 @@ def parallel_prediction(dic_with_dfs, balance_method,
             parallel.__exit__(None, None, None)
         # force garbage collection to clean up resources
         gc.collect()
-    print('Program has finished')
-    return
+    return 'Done'
+
+
+def prediction_on_gpu(dic_with_dfs, balance_method,
+                        markers_df, afile, acc_file, verbosity):
+
+    for directory in dic_with_dfs.keys():
+        _ = supervised_clustering(directory=directory,
+                                  odf=dic_with_dfs[directory],
+                                  markers_df=markers_df,
+                                  train_size=0.35,
+                                  accuracy_threshold=0.90,
+                                  smote_type=balance_method,
+                                  neighbors=2, outname='SML',
+                                  accessory_file=acc_file,
+                                  verbosity=verbosity)
+    return 'Done'
+
+
+def prediction(dic_with_dfs, balance_method,
+                        markers_df, afile, verbosity):
+    if afile is not None and os.path.isfile(afile):
+        acc_file = pd.read_csv(afile, sep='\t', header=0)
+    else:
+        acc_file = None
+
+    if acceleration == 'CPU':
+        #  predict each dataset in parallel
+        _ = parallel_prediction(dic_with_dfs=dic_with_dfs,
+                                balance_method=balance_method,
+                                markers_df=markers_df,
+                                afile=afile, acc_file=acc_file,
+                                verbosity=verbosity)
+    else:
+        print('Acceleration on GPU')
+        _ = prediction_on_gpu(dic_with_dfs=dic_with_dfs,
+                                balance_method=balance_method,
+                                markers_df=markers_df,
+                                afile=afile, acc_file=acc_file,
+                                verbosity=verbosity)
+    return 'Program has finished'
 
 
 #  ---   execute   ---   #
