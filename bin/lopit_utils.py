@@ -1105,7 +1105,7 @@ def write_mydf(dfs_list, outname, hdbscan, cutoff, accessory_file):
                                              on='Accession',
                                              how='left'), dfs_list)
     fill_cols = ['SVM.prediction.threshold', 'KNN.prediction.threshold',
-                 'RF.prediction.threshold', 'NB.prediction.threshold']
+                 'RF.prediction.threshold']
     # compute shared predictions and prepare final df
     pre_final_df = common_prediction(df, fill_cols, hdbscan, cutoff)
     # merge accessory file if passed
@@ -1204,11 +1204,11 @@ def common_prediction(df, cols, hdbscan=False, cutoff=''):
             dic1[acc] = 'unknown'
             dic2[acc] = 0
     if size == 5:
-        df['most.common.pred.SVM.KNN.RF.NB.hdbscan'] = df['Accession'].map(dic1)
+        df['most.common.pred.SVM.KNN.RF.hdbscan'] = df['Accession'].map(dic1)
     else:
-        df['most.common.pred.SVM.KNN.RF.NB'] = df['Accession'].map(dic1)
+        df['most.common.pred.SVM.KNN.RF'] = df['Accession'].map(dic1)
 
-    complete = [f'most.common.pred.SVM.KNN.RF.NB.{ml}',
+    complete = [f'most.common.pred.SVM.KNN.RF.{ml}',
                 f'most.common.pred.supported.by{sign}',
                 f'best.pred.supported3{sign}marker',
                 f'best.pred.supported4{sign}marker']
