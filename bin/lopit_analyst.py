@@ -1,4 +1,5 @@
-'''#!//home/dsalas/miniforge3/envs/lopit_analyst_dev//bin/python'''
+'''#!/home/dsalas/.conda/envs/lopit_analyst_2025/bin/python'''
+
 import os
 import sys
 import charms
@@ -10,7 +11,6 @@ import psm_diagnostics as dia
 import clustering_data as clt
 import mv_imp_norm_aggr as iagg
 import svm_knn_rf_clustering as sml
-
 
 #   Info  #
 __author__ = ['Dayana Salas-Leiva']
@@ -86,6 +86,7 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
                                                        args['figure_dimension'],
                                                        args['z_axis'],
                                                        args['verbose'])
+            return None
         elif args['figure_dimension'].upper() == '2D':
             marker_loop = clt.create_marker_loop(args['perplexity'])
             try:
@@ -106,6 +107,7 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
                                                            args['color'],
                                                            args['figure_dimension'],
                                                            args['verbose'])
+                return None
         else:
             a = args['figure_dimension']
             print(f'Unrecognized argument {a}')
@@ -203,10 +205,10 @@ def predict_compartments(args):  # workflow 7 subparser sml
                                     args['balancing_method'],
                                     args['verbose'])
 
-    predictions = sml.parallel_prediction(dfs_dic,
-                                          args['balancing_method'],
-                                          markers, args['additional_file'],
-                                          args['verbose'])
+    predictions = sml.prediction(dfs_dic,
+                                 args['balancing_method'],
+                                 markers, args['additional_file'],
+                                 args['verbose'])
     return predictions
 
 
