@@ -1,4 +1,4 @@
-
+acceleration= 'CPU'
 import gc
 import os
 import re
@@ -30,8 +30,6 @@ from sklearn.preprocessing import (StandardScaler,  LabelEncoder)
 from sklearn.metrics import (classification_report, multilabel_confusion_matrix,
                              accuracy_score, precision_recall_curve, roc_curve,
                              precision_score, recall_score, f1_score)
-
-acceleration= 'CPU'
 
 
 sml_cols = ['SVM.prediction', 'KNN.prediction', 'Random.forest.prediction',
