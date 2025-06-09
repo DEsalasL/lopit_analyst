@@ -1160,64 +1160,49 @@ def common_prediction(df, cols, hdbscan=False, cutoff=''):
         # calculate without hdbscan or tagm predictions
         else:
             ml, size, sign = '', 4, '+'
-
     ndf.set_index('Accession', inplace=True)
     wdf = ndf.loc[:, cols]
-    dic1, dic2, dic3, dic4 = {}, {}, {}, {}
-    for acc in wdf.index:
-        y = wdf.loc[acc, :].values.flatten().tolist()
-        temp = sorted(Counter(y).items(), key=lambda x: x[1], reverse=True)
-        if len(temp) == 1:
-            dic1[acc] = temp[0][0]
-            dic2[acc] = temp[0][1]
-            if temp[0][1] >= 3:
-                if temp[0][1] >= 4:
-                    dic4[acc] = temp[0][0]
-                    dic3[acc] = temp[0][0]
-                else:
-                    if acc not in dic3.keys():
-                        dic3[acc] = temp[0][0]
-        elif 1 < len(temp) < size:
-            if temp[0][1] > temp[1][1]:
-                dic1[acc] = temp[0][0]
-                dic2[acc] = temp[0][1]
-                if temp[0][1] >= 3:
-                    if temp[0][1] >= 4:
-                        dic4[acc] = temp[0][0]
-                        dic3[acc] = temp[0][0]
-                    else:
-                        if acc not in dic3.keys():
-                            dic3[acc] = temp[0][0]
-            if size == 5:
-                if temp[0][1] == temp[1][1] == temp[2][1]:
-                    dic1[acc] = '|'.join([temp[0][0], temp[1][0], temp[2][0]])
-                    dic2[acc] = 0
-                elif temp[0][1] == temp[1][1]:
-                    dic1[acc] = '|'.join([temp[0][0], temp[1][0]])
-                    dic2[acc] = 0
-            elif size == 4:
-                if temp[0][1] == temp[1][1]:
-                    dic1[acc] = '|'.join([temp[0][0], temp[1][0]])
-                    dic2[acc] = 0
+    res_3 = find_common_terms_by_accession(wdf, cols, min_occurrences=3)
+    res_4 = find_common_terms_by_accession(wdf, cols, min_occurrences=4)
+    merge = pd.merge(res_3, res_4, on='Accession', how='outer')
+    fdf = pd.merge(df, merge, on='Accession', how='left')
+    return fdf
+
+
+def find_common_terms_by_accession(df, columns, min_occurrences):
+    results= []
+    # Iterate through each row
+    m = f'best.pred.supported{min_occurrences}+marker'
+    c = f'most.common.pred.supported.{min_occurrences}+.by'
+    for idx, row in df.iterrows():
+        # Count occurrences of each value in this row
+        value_counts = row[columns].value_counts()
+        # Filter for values appearing at least min_occurrences times
+        frequent_terms = value_counts[value_counts >= min_occurrences]
+
+        if len(frequent_terms) == 0:
+            results.append({'Accession': idx,
+                            m: 'unknown',
+                            c: 0})
         else:
-            dic1[acc] = 'unknown'
-            dic2[acc] = 0
-    if size == 5:
-        df['most.common.pred.SVM.KNN.RF.NB.hdbscan'] = df['Accession'].map(dic1)
-    else:
-        df['most.common.pred.SVM.KNN.RF.NB'] = df['Accession'].map(dic1)
+            # Find the maximum count
+            max_count = frequent_terms.max()
 
-    complete = [f'most.common.pred.SVM.KNN.RF.NB.{ml}',
-                f'most.common.pred.supported.by{sign}',
-                f'best.pred.supported3{sign}marker',
-                f'best.pred.supported4{sign}marker']
-    dics = [dic1, dic2, dic3, dic4]
+            # Get all terms that appear the maximum number of times
+            most_common = frequent_terms[frequent_terms == max_count]
 
-    for col, dic in zip(complete, dics):
-        df[col] = df['Accession'].map(dic)
-        df[col] = df[col].fillna('unknown')
-    df[complete] = df.loc[:, complete].fillna('unknown')
-    return df
+            if len(most_common) == 1:
+                results.append({'Accession': idx,
+                                m: most_common.index[0],
+                                c: max_count if most_common.index[0]
+                                                != 'unknown' else 0})
+            else:
+                results.append({'Accession': idx,
+                                m: list(most_common.index),
+                                c: max_count if most_common.index[0]
+                                                != 'unknown' else 0})
+    res = pd.DataFrame(results)
+    return res
 
 
 def experiments_exist(df1, df2, df1_type, df2_type):
@@ -1234,6 +1219,7 @@ def experiments_exist(df1, df2, df1_type, df2_type):
                   f'{df2_exps}\nExiting program...')
             sys.exit(-1)
     return
+
 
 def tmt_sorted_df(df, tmt_channels):
     df_cols = df.columns.tolist()

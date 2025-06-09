@@ -32,9 +32,12 @@ from sklearn.metrics import (classification_report, multilabel_confusion_matrix,
                              precision_score, recall_score, f1_score)
 
 
-sml_cols = ['SVM.prediction', 'KNN.prediction', 'Random.forest.prediction',
-            'Naive.Bayes', 'most.common.pred.SVM.KNN.RF.NB.hdbscan',
-            'most.common.pred.SVM.KNN.RF.NB', 'most.common.pred.supported.by',
+sml_cols = ['SVM.prediction.threshold', 'KNN.prediction.threshold',
+            'RF.prediction.threshold', 'NB.prediction.threshold',
+            'most.common.pred.SVM.KNN.RF.NB.hdbscan',
+            'most.common.pred.SVM.KNN.RF.NB',
+            'most.common.pred.supported.3+.by',
+            'most.common.pred.supported.4+.by',
             'best.pred.supported3+', 'best.pred.supported4+']
 
 
@@ -1101,8 +1104,9 @@ def changing_preexisting_colnames(df, markers_info):
                     'NB.probability',
                     'NB.no.threshold',
                     'NB.prediction.threshold',
-                    'most.common.pred.supported.by',
+                    'most.common.pred.supported.3+.by'
                     'best.pred.supported3+marker',
+                    'most.common.pred.supported.4+.by'
                     'best.pred.supported4+marker',
                     'most.common.pred.SVM.KNN.RF.NB.hdbscan',
                     'most.common.pred.SVM.KNN.RF.NB']
