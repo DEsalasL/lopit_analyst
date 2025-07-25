@@ -9,31 +9,17 @@ CUDA/GPU requirements:
 - Python 3.12+
 
 
-
-### 1. Install CUDA standard (includes duDF, cuML, cuGraph, nx-cugraph, cuSpatioal, cuProj, cuxfilter, cuCIM, RAFT, cuVS)
+### 1. clone git repository
 ```
-conda create -n rapids-24.12 -c rapidsai -c conda-forge -c nvidia rapids=24.12 python=3.12 cuda-version=12.5
+git clone https://github.com/DEsalasL/lopit_analyst.git
 ```
-**Note**: if there are issues during installation please refer to https://docs.rapids.ai/install/ for troubleshooting
+after cloning, go into the directory called lopit_analyst and install using 
+conda
 
-### 2. After step 1, install additional packages
-```conda install -n rapids-24.12 <package>```
-packages required:
-- dash
-- hdbscan
-- umap-learn
-- missingno (v=0.5.2)
-- openpyxl
-- pypdf
-- seaborn
-- patchworklib
-- plotnine
-- natsort
-- venn
-- imbalanced-learn
-
-### 3. Another way to create the environment is:
-```conda create --name lopit_analyst --file requirements.txt```
+### 2. Install using conda
+```
+conda create -n lopit_analyst -f environment.yml
+```
 
 #Usage
 
