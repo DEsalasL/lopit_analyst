@@ -155,9 +155,7 @@ unwrapped = {
            "from 0 - 1) e.g., 0.1 will remove all channels containing more "
            "than 10 percent missing values, but will keep those channels that "
            "have less than 10 percent of missing values.",
-    "m31": "A PCA analysis will be carried out. Memory and time "
-           "consuming task when applied to large datasets. "
-           "Default: False",
+
     "m32": "Turn on verbosity (type True). Default: False",
     "m33": "Projections will be drawn if protein features file is provided",
     "m34": "Create all HDBSCAN projections. Default: False"}
@@ -225,22 +223,17 @@ dic_5 = {'-i': ['--input', str, other_ms['m16'], True],
          '-g': ['--group_combinations', str, other_ms['m9'], True, 'all'],
          '-m': ['--markers_file', str, other_ms['m10a'], False],
          '-f': ['--protein_features', str, other_ms['m11'], False],
-         '-t': ['--method_tsne', str, other_ms['m15t1'], True, 'exact'],
-         '-x': ['--perplexity', int, other_ms['m15t2'], False, 50],
-         '-e': ['--cluster_selection_epsilon', float, other_ms['m15h1'],
+         '-t': ['--tsne_method', str, other_ms['m15t1'], True, 'exact'],
+         '-x': ['--tsne_perplexity', int, other_ms['m15t2'], False, 50],
+         '-e': ['--hdbscan_epsilon', float, other_ms['m15h1'],
                 False, 0.0],
-         '-cs': ['--min_size', int, other_ms['m15h2'], False],
-         '-ms': ['--min_sample', int, other_ms['m15h3'], False],
-         '-md': ['--min_dist', float, other_ms['m15u1'], False, 0.1],
-         '-n': ['--n_neighbors', float, other_ms['m15u2'], False],
-         '-u': ['--hdbscan_on_umap', bool, other_ms['m22'], False],
-         '-a': ['--additional_file', str, other_ms['m10b'], False],
-         '-p': ['--pca', bool, other_ms['m31'], True],
-         '-fp': ['--feature_projection', str, other_ms['m33'], False],
-         '-pe': ['--projections_enabled', str, other_ms['m34'], False],
-         '-v': ['--verbose', bool, other_ms['m32'], False]}
+         '-cs': ['--hdbscan_min_size', int, other_ms['m15h2'], False],
+         '-ms': ['--hdbscan_min_sample', int, other_ms['m15h3'], False],
+         '-md': ['--umap_min_dist', float, other_ms['m15u1'], False, 0.1],
+         '-n': ['--umap_n_neighbors', float, other_ms['m15u2'], False],
+         '-u': ['--hdbscan_on_umap', bool, other_ms['m22'], False]}
 
-# #   6- full analysis post diagnostics:
+# #  6- full analysis post diagnostics:
 # dic_6 = dic_4.copy()
 # shared_dic = {k: dic_5[k] for k in dic_5.keys() if k not in ['-i', '-o']}
 # dic_6.update(shared_dic)
@@ -367,11 +360,12 @@ def argument_check(user_args):
             except:
                 pass
         if k == 'hdbscan_on_umap':
+            print(f'hdbscan_on_umap is set to {user_args[k]}')
+
             if user_args[k] is None:
                 user_args.update({k: False})
-        if k == 'pca':
-            if user_args[k] is None:
-                user_args.update({k: False})
+            else:
+                user_args.update({k: user_args[k]})
         if k == 'verbose':
             if user_args[k] is None:
                 user_args.update({k: False})
