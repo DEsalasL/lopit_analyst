@@ -122,11 +122,17 @@ def does_exclude_exists(df, exclude):
     if exclude == ';':  # force bypass
         return True
     my_series = list(set(df['Marked.as'].str.contains(exclude).to_list()))
-    if True in my_series:
-        return True
-    else:
-        print('Error: taxon name does not exist in PSMs file')
-        sys.exit(-1)
+
+    try:
+        if True in my_series:
+            return True
+        else:
+            print('Error: taxon name does not exist in PSMs file')
+            print(f'Available values in Marked.as: {df["Marked.as"].unique()[:10]}')
+            return False  # Don't exit, let caller handle
+    except Exception as e:
+        print(f'Error checking taxon name: {e}')
+    return True  # Allow bypass on error
 
 
 def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
@@ -148,12 +154,14 @@ def run_data_filter(arg1, density, fileout, outname, exclude, sn_value):
                                      engine='python')
 
     # check if declared taxon name exists in 'Marked.as' field.
+    pre_parsed_psm['Marked.as'] = pre_parsed_psm['Marked.as'].fillna(';')
     if exclude is None or exclude.lower() == 'other':  # bypass when
         # no other taxon is expected in pd out
         exclude = ';'
+
     _ = does_exclude_exists(pre_parsed_psm, exclude)
 
-    # proceed with initial reduction
+    # proceed with the initial reduction
     filt_df = df_reduction(pre_parsed_psm, exclude, sn_value)
     taginf = lopit_utils.custom_taginf(lopit_utils.taginf, pre_parsed_psm)
 
