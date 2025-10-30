@@ -327,14 +327,15 @@ Within newly created ‘Step5__Clustering_Pmar_peptide_level’:same outputs as 
 
 
 # Step 6. Supervised machine learning classification (sml)
-Four supervised machine learning methods are implemented: Support vector machine (SVM), K-Nearest Neighbors (KNN), Random Forest (RF), and Naïve Bayes (NB). For each method the best hyperparameters for a given dataset are obtanined and used for training and classification. All of the methods are estimated for all experiment combinations obtained in Step5. The markers provided for training can be used as they are specifying the method ‘unbalanced’ to the ‘--balancing_method’ flag. However, the variable number of proteins working in different organelles, hence, the variable number of available markers per organelle can create biases during classification process. A way to mitigate such a bias is to use a balanced training set via generation of synthetic markers (e.g., ‘borderline’, ‘over_under’ or ‘smote’).  a Three and four majority rule classification is also generated using HDBSCAN classification and the four methods.  TAGM classification may be added at a later stage if provided, then HDBSCAN is replaced for TAGM for the three and four majority rule classification.
+Four supervised machine learning methods are implemented: Support vector machine (SVM), Random Forest (RF), and ensemble by stacking SVM and RF as base estimators, and RF as metaestimator. For each method the best hyperparameters for a given dataset are obtanined and used for training and classification. The variable number of proteins working in different organelles, usually means a variable number of available markers per organelle, and may lead to biases during classification process. A way to mitigate such a bias is to use a balanced training set via generation of synthetic markers (e.g., ‘borderline’, or ‘smote’).  
+A common prediction is also generated for stand-alone predictions with SVM and RF.  TAGM classification may be added at a later stage if provided, then HDBSCAN is replaced for TAGM for the three and four majority rule classification.
 
 \# SML by master protein accession:
 ```
 lopit_analyst.py sml --input Step5__Clustering_Pmar_protein_level/PL1PL2PLNPLO/All_results_PL1PL2PLNPLO.tsv \
                      --out_name Pmar_protein_level_smote \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
-                     --balancing_method SmoteNC \
+                     --balancing_method smote \
                      --sampling_strategy auto \
                      --threshold 0.99 \
                      --scaling True \
@@ -358,20 +359,29 @@ A new directory for each directory in Step5 is created containing:
   <experiment_combination>_original_and_synthetic_markers.tsv
 - Assessment metrics by experiment (precision, recall, f1-score, support):
   SVM.<experiment_combination>.assessment.metrics.xlsx, 
-  KNN.<experiment_combination>.assessment.metrics.xlsx, 
   RF.<experiment_combination>.assessment.metrics.xlsx, 
-  NB.<experiment_combination>.assessment.metrics.xlsx
+  STACK.<experiment_combination>.assessment.metrics.xlsx (STACK corresponds to the ensemble of SVM and RF(RF))
+
 - Detailed probabilities for each method:
   <experiment_combination>.probabilities.xlsx
 
 \# SML by master protein accession and psms sequence:
 ```
-lopit_analyst.py sml --input Step5__Clustering_Pmar_accpsm \
-                     --out_name Pmar_peptide_level_smote \
-                     --recognition_motif  Final_df_ \
+lopit_analyst.py sml --input Step5__Clustering_Pmar_accpsm/PL1PL2PLNPLO/All_results_PL1PL2PLNPLO.tsv \
+                     --out_name Pmar_protein_level_smote \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
-                     --markers_type global \
-                     --balancing_method smote \
+                     --balancing_method SmoteNC \
+                     --sampling_strategy auto \
+                     --threshold 0.99 \
+                     --scaling True \
+                     --continuous_columns Pmarinus.continuous_cols.txt \
+                     --n_jobs -2  \
+                     --out_name $output_dir\protein_smote_0.99 \
+                     --calibration True  \
+                     --test_fraction 0.2 \
+                     --training_fraction 0.5 \
+                     --calibration_fraction 0.3 \
+                     --augment_calibration_set True \
                      --additional_file Pmarinus.eval0.001.PTHR17-Score.tsv
 ```
 ### Outputs produced: 
