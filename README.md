@@ -327,11 +327,16 @@ Within newly created ‘Step5__Clustering_Pmar_peptide_level’:same outputs as 
 
 
 # Step 6. Supervised machine learning classification (sml)
-Three supervised machine learning methods are implemented: Support vector machine (SVM), Random Forest (RF), and ensemble by stacking SVM and RF as base estimators, with RF as metaestimator. For each method the best hyperparameters for a given dataset are obtanined and used for training and classification. 
-specifying columns to be used in the analysis:
-Scaling: you must set '--scaling False' if you are using only TMT data that was preprocessed with lopit_analyst_workflow. However, you must '--scaling True' if you want to use calc.pI (isoelectric point). 
-As the number of proteins in the organelles vary, usually, a variable or unbalanced number of markers per organelle is available for machine learning. Such unbalance could lead to biases during the classification process. Hence, the workflow allows the user to balance training set via generation of synthetic markers (e.g., ‘borderline’, or ‘smote’).  
-A common prediction is also generated for stand-alone predictions with SVM and RF. 
+Three supervised machine learning methods are implemented: Support vector machine (SVM), Random Forest (RF), and ensemble by stacking SVM and RF as base estimators, with RF as metaestimator. For each method the best hyperparameters for a given dataset are obtanined and used for training and classification. A common prediction is also generated for stand-alone predictions with SVM and RF
+- How to specify the columns to be used in the analysis:
+   1) You must provide a txt file containing the names of the continous columns in the input file (--continuous_columns Pmarinus.continuous_cols.txt).
+      The workflow also allows the inclusion of categorical data, but unfortunately, the methods implemented here do not seem work well with such a data and you should not include such a data, if you do so, do it at your own risk.
+   2) You can either use all of the specified continuous columns or apply a the '--feature_selection' flag to select the most informative continuous columns in your data.
+- Scaling:
+  You must set '--scaling False' if you are using solely TMT data that was preprocessed with the lopit_analyst_workflow (as it produces normalized TMT data). However, you must set '--scaling True' if you want to use calc.pI (isoelectric point). 
+- Markers:
+  As the number of proteins in the organelles vary, usually, a variable or unbalanced number of markers per organelle is available for machine learning. Such unbalance could lead to biases during the classification process. Hence, the workflow allows the user to balance training set via generation of synthetic markers (e.g., ‘borderline’, or ‘smote’).  
+
 
 \# SML by master protein accession:
 ```
