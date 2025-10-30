@@ -335,8 +335,12 @@ Three supervised machine learning methods are implemented: Support vector machin
 - Scaling:
   You must set '--scaling False' if you are using solely TMT data that was preprocessed with the lopit_analyst_workflow (as it produces normalized TMT data). However, you must set '--scaling True' if you want to use calc.pI (isoelectric point). 
 - Markers:
-  As the number of proteins in the organelles vary, usually, a variable or unbalanced number of markers per organelle is available for machine learning. Such unbalance could lead to biases during the classification process. Hence, the workflow allows the user to balance training set via generation of synthetic markers (e.g., ‘borderline’, or ‘smote’).  
-
+  1) As the number of proteins in the organelles vary, usually, a variable or unbalanced number of markers per organelle is available for machine learning. Such unbalance could lead to biases during the classification process. Hence, the workflow allows the user to balance training set via generation of synthetic markers (e.g., ‘borderline’, or ‘smote’).  
+  2) The workflow splits the provided markers according to specified fractions:
+     - training and test, which yield classifications with uncalibrated probabilities, or
+     - training, calibration, and test sets, which yield classifications with calibrated probabilities. To enable this behavior set '--calibration True' and provide the corresponding fraction value for each set.  Depending on the number or markers per organelle, you might have very few markers for calibration and in such a case it will be unrealiable. For this reason, the workflow allows you to generate synthetic markers by setting '--augment_calibration_set True'.
+- Parallel processing:
+  To enable paralell processing you can pass the number of CPUs to be used for the process. for example, n_jobs 1, n_jobs 2 will allow you to use 1 or 2 CPUs respectively. You can also use -2 to use all but 1 available CPUs. However, you must be careful when declaring n_jobs -2 as you might interfere with other concurrent processes in the system.
 
 \# SML by master protein accession:
 ```
