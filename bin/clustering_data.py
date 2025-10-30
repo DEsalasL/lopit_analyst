@@ -62,7 +62,10 @@ def process_single_dataset(df: pd.DataFrame, dataset_name: str,
                            markers_map: pd.DataFrame,
                            pca_comp: float = 0.99,
                            tsne_method: str = 'barnes_hut',
-                           tsne_perplexity: float = 30.0,
+                           tsne_perplexity: float = 50.0,
+                           tsne_learning_rate: int = 350,
+                           tsne_n_iter: int = 10000,
+                           tsne_init: str = 'random',
                            umap_neighbors: int = 15,
                            umap_min_dist: float = 0.1,
                            hdbscan_epsilon: float = 0.025,
@@ -112,7 +115,10 @@ def process_single_dataset(df: pd.DataFrame, dataset_name: str,
     tsne_result = gc_tsne.gpu_tsne_safe(df=df,
                                         dataset=dataset_name,
                                         method=tsne_method,
-                                        perplexity=tsne_perplexity)
+                                        perplexity=tsne_perplexity,
+                                        learning_rate=tsne_learning_rate,
+                                        n_iter=tsne_n_iter,
+                                        init=tsne_init)
 
     if tsne_result is not None:
         results['tsne_result'] = tsne_result
@@ -133,8 +139,7 @@ def process_single_dataset(df: pd.DataFrame, dataset_name: str,
                                         dataset=dataset_name,
                                         n_neighbors=umap_neighbors,
                                         min_dist=umap_min_dist,
-                                        n_components=2,
-                                        markers__map=markers_map)
+                                        n_components=2)
     if umap_result is not None:
         results['umap_result'] = umap_result
         results['success']['umap'] = True
@@ -306,6 +311,9 @@ def cluster_analysis(files_list,
                      datasets,
                      tsne_method,
                      tsne_perplexity,
+                     tsne_learning_rate,
+                     tsne_n_iter,
+                     tsne_init,
                      mymarkers,
                      fileout,
                      hdbscan_epsilon,
@@ -339,6 +347,9 @@ def cluster_analysis(files_list,
         pca_comp=0.99,
         tsne_method=tsne_method,
         tsne_perplexity=tsne_perplexity,
+        tsne_learning_rate=tsne_learning_rate,
+        tsne_n_iter=tsne_n_iter,
+        tsne_init=tsne_init,
         umap_neighbors=umap_n_neighbors,
         umap_min_dist=umap_min_dist,
         markers_map=markers_map,

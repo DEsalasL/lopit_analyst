@@ -12,12 +12,17 @@ from functools import reduce
 import plotly.express as px
 from itertools import product
 from collections import Counter
+import warnings
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
 import matplotlib.pyplot as plt
 from pypdf import PdfWriter, PdfReader
 # from SVM_KNN_RF_clustering import write_mydf
 from itertools import combinations, zip_longest
 from matplotlib.backends.backend_pdf import PdfPages
 from dash import Dash, dcc, html, Input, Output, callback
+from sklearn.metrics import (precision_recall_curve, roc_curve,
+                             precision_score, recall_score, f1_score)
 
 #   ---   available TMT channels, internal equivalences, and colors ---   #
 
@@ -140,7 +145,8 @@ def rendering_figures(dic, out_file):
         dic.savefig(out_file)
         return 'Done'
     else:
-        print('Too many objects to draw in a single figure')
+        print('Too many objects to draw in a single figure',
+               sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
 
 
@@ -153,7 +159,8 @@ def compare_loop(list_with_tuples):
         elif len(fig_lst) == 1:
             my_layout = fig_lst[0]
         else:
-            print('***  Warning  *** : emtpy figure:\n', fig_lst, oname)
+            print('***  Warning  *** : emtpy figure:\n', fig_lst, oname,
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
             my_layout = None
         out_name = os.path.join(os.getcwd(), f'{oname}.pdf')
         if my_layout is not None:
@@ -171,10 +178,12 @@ def multiple_fig_to_pdf(lst, file_out):
 
 
 def merge_pdfs(lst_w_pdfs, outname):
-    print('Merging PDFs...')
+    print('Merging PDFs...',
+           sep=' ', end='\n', file=sys.stdout, flush=True)
     writer = PdfWriter()
     for path in lst_w_pdfs:
-        print(f'Processing PDF file {path}...')
+        print(f'Processing PDF file {path}...',
+                sep=' ', end='\n', file=sys.stdout, flush=True)
         try:
             reader = PdfReader(path)
             for page in reader.pages:
@@ -185,12 +194,14 @@ def merge_pdfs(lst_w_pdfs, outname):
     try:
         with open(outname, 'wb') as output_file:
             writer.write(output_file)
-        print(f'PDFs merged successfully into {outname}.')
+        print(f'PDFs merged successfully into {outname}.',
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
     except Exception as e:
         raise Exception(f'Error writing merged PDF: {e}')
 
     # delete source files
-    print('Deleting source PDF files...')
+    print('Deleting source PDF files...',
+           sep=' ', end='\n', file=sys.stdout, flush=True)
     for abspath in lst_w_pdfs:
         fpath = pathlib.Path(abspath)
         fpath.unlink()
@@ -253,12 +264,59 @@ def garbage_collector(list_of_dfs_to_keep):
     gc.collect()
     return list_of_dfs_to_keep
 
+#
+
+def df_integration(df1, df2, dataset):
+    #   ---   integrating charms into main df  ---   #
+    df_in1 = pd.merge(df1, df2, on='Accession', how='left')
+    #   ---   calculating quantiles and psms sums by prot group ---   #
+    ndf = psms_sums_by_protgroup(df_in1)
+    for i in ['level_0', 'level0', 'index']:
+        if i in ndf.columns.to_list():
+            del ndf[i]
+    print(f'Your final file containing TMT and accessory data integrated is:\n'
+          f'Final_df_{dataset}.tsv',
+            sep=' ', end='\n', file=sys.stdout, flush=True)
+    fpath = os.path.join(os.getcwd(), f'Final_df_{dataset}.tsv')
+    ndf.to_csv(fpath, sep='\t', index=False)
+    return ndf
+
+def psms_sums_by_protgroup(sdf):
+    df = sdf.copy(deep=True)
+    mycols = df.filter(regex='PSMs.per.Protein.Group').columns.to_list()
+    df['Sum.PSMs.per.Protein.Group'] = df.loc[:, mycols].sum(axis=1)
+    df['quantiles'] = pd.qcut(df['Sum.PSMs.per.Protein.Group'
+                              ].rank(method='first'),
+                              q=[0, .25, .5, .75, 0.99, 1],
+                              labels=[0, 0.25, 0.50, 0.75, 1],
+                              duplicates='drop')
+    df['PSMs_by_prot_group'] = pd.cut(df['Sum.PSMs.per.Protein.Group'],
+                                      bins=6)
+    return df
+
+
+def progressive_df(df1, df2, outname, how, verbosity=False,
+                   anot=pd.DataFrame()):
+    fpath = os.path.join(os.getcwd(), f'{outname}.tsv')
+    merged = pd.merge(df1, df2, left_index=True, right_index=True, how=how)
+    merged_sorted = tmt_sorted_df(merged, tmt_chans)
+    if not anot.empty:
+        anot.set_index('Accession', inplace=True)
+        new_merged = pd.merge(merged_sorted, anot, left_index=True,
+                              right_index=True, how=how)
+        if verbosity:
+            new_merged.to_csv(fpath, sep='\t', index=True)
+    else:
+        if verbosity:
+            merged_sorted.to_csv(fpath, sep='\t', index=True)
+    return merged
 
 #  --- Start: matrices correction workflows ---
 
 def experiment_assigment(df, exp_pref, col):
     if col is None:
-        print('No column for inferring experiment names has been declared')
+        print('No column for inferring experiment names has been declared',
+               sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
     groups = []
     rawnames = []
@@ -270,21 +328,26 @@ def experiment_assigment(df, exp_pref, col):
         rawnames.extend(raw)
         tmp_sdf = df[df[col].str.contains(k)].copy(deep=True)
         if tmp_sdf.empty:
-            print(f'Declared {k} for raw file seems incorrect.')
+            print(f'Declared {k} for raw file seems incorrect.',
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
         tmp_sdf['Experiment'] = exp_pref[k]
         groups.append(tmp_sdf)
     new_df = pd.concat(groups)
     if df.shape[0] != new_df.shape[0]:
-        print('Available raw file names', '\n'.join(set(rawnames)))
-        print(df.shape[0], new_df.shape[0])
+        print('Available raw file names', '\n'.join(set(rawnames)),
+               sep=' ', end='\n', file=sys.stdout, flush=True)
+        print(f'{df.shape[0]}, {new_df.shape[0]}',
+                sep=' ', end='\n', file=sys.stdout, flush=True)
         print('There are missing values. Some experiments might not have been'
-              'declared correctly.')
+              'declared correctly.',
+               sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
     return new_df
 
 
 def renaming_columns(df, rename_cols, outname):
-    print('rename columns has been requested as follows:\n', rename_cols)
+    print('rename columns has been requested as follows:\n', rename_cols,
+           sep=' ', end='\n', file=sys.stdout, flush=True)
     tmt_cols = [col for col in df.columns.to_list() if
                 col.startswith('TMT')]
     #  --- slicing by requested experiments ---  #
@@ -306,12 +369,14 @@ def renaming_columns(df, rename_cols, outname):
                 empty_list = [e for e in nsdf[target].to_list() if e == '']
                 if len(empty_list) == nsdf.shape[0]:
                     print(f'Dropping empty column {target} from '
-                          f'experiment {exp}')
+                          f'experiment {exp}',
+                          sep=' ', end='\n', file=sys.stdout, flush=True)
                     del nsdf[target]
                 else:
                     print('At least one column to rename is not empty and '
                           'will appear redundant with the provided renames\n'
-                          'Exiting program')
+                          'Exiting program',
+                          sep=' ', end='\n', file=sys.stdout, flush=True)
                     sys.exit(-1)
             # ---
             nsdf.dropna(axis=1, how='all', inplace=True)
@@ -356,9 +421,11 @@ def accesion_checkup(df1, df2, ftype='marker'):
     if intersection:
         if missing_acc and ftype != 'accessory file':
             print('There following accessions are missing from '
-                  f'{ftype}:\n', '\n'.join(missing_acc))
+                  f'{ftype}:\n', '\n'.join(missing_acc),
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
             if ftype == 'marker':
-                print('Exiting program...')
+                print('Exiting program...',
+                      sep=' ', end='\n', file=sys.stdout, flush=True)
                 sys.exit(-1)
         return df2
     else:
@@ -375,14 +442,16 @@ def accesion_checkup(df1, df2, ftype='marker'):
                 return merged
             if ftype != 'marker':
                 if len(intersection) != len(df1_accs):
-                    print(f'There are accessions missing in the {ftype} file')
+                    print(f'There are accessions missing in the {ftype} file',
+                            sep=' ', end='\n', file=sys.stdout, flush=True)
                 merged = compare_merge(df1.loc[:, ['tmp', 'Accession']], df2)
                 return merged
             else:
                 return None
         else:  # accessions between df1 and df2 does not intersect
             print('There is no intersection between the two compared dfs')
-            print('saving compared dfs for debugging.\nExiting program...')
+            print('saving compared dfs for debugging.\nExiting program...',
+                   sep=' ', end='\n', file=sys.stdout, flush=True)
             df1.loc[:, ['tmp', 'Accession']].to_csv(f'df1.partial.debug.tsv',
                                                     sep='\t', index=False)
             df2.to_csv(f'df2.full.{ftype}.debug.tsv', sep='\t', index=False)
@@ -398,7 +467,8 @@ def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args,
         print(df.columns.to_list())
     except:
         print('file cannot be read as dataframe (it is likely the '
-              'wrong file type). Exiting program')
+              'wrong file type). Exiting program',
+               sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
     # patch to eliminate blank spaces in quantitative data (bug in PD3.1)
     tmt_cols_prep = df.filter(regex=r'^Abundance ').columns.to_list()
@@ -427,7 +497,8 @@ def psm_matrix_prep(filein, outname, exp_pref, rename_cols, args,
     # checking if TMT labels are present in modifications col
     if modifications_checkup(df) is False:
         print('No TMT modifications are present in input table. '
-              'Exiting program')
+              'Exiting program',
+               sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
 
     #  --- optional: grouping by experiments for channel renaming
@@ -463,7 +534,8 @@ def phenodata_prep(filein, outname, args, verbosity):
                       sep='\t', index=False)  # na_rep='NA')
         else:
             print(f'Minimum expected column names are: {expected_cols}.\n'
-                  f'Exiting program')
+                  f'Exiting program',
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
     #  write command
     _ = command_line_out('pheno_data', **args)
@@ -471,8 +543,7 @@ def phenodata_prep(filein, outname, args, verbosity):
 
 
 def proteins_prep(filein, file_out, search_engine, args, verbosity):
-    df = pd.read_csv(filein, sep='\t', header=0, dtype='object',
-                     na_values=['<NA>', ''])
+    df = pd.read_csv(filein, sep='\t', header=0, dtype='object', na_values=['<NA>', ''])
     df.columns = df.columns.str.replace('[ |-]', '.', regex=True)
     df = df.convert_dtypes()
     df.rename(columns={'Number.of.Peptides': 'Number.of.Peptides.total'},
@@ -534,7 +605,8 @@ def nan(df, cols):
 
 def channel_exist(df, declared_experiments):
     print('the following experiments will have at least one channel renamed:\n',
-          '\n'.join(declared_experiments))
+          '\n'.join(declared_experiments),
+          sep=' ', end='\n', file=sys.stdout, flush=True)
     if declared_experiments is not None:
         avail_tmt = list(df.filter(regex=r'^TMT.*\d+').columns)
         decl_tmt = set([k for exp in declared_experiments.keys()
@@ -542,7 +614,8 @@ def channel_exist(df, declared_experiments):
         unavail_tmt = [tmt for tmt in decl_tmt if tmt not in avail_tmt]
         if unavail_tmt:
             c = ','.join(unavail_tmt)
-            print(f'Error: requested {c} channel(s) not available in psm file.')
+            print(f'Error: requested {c} channel(s) not available in psm file.',
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
             sys.exit(-1)
         else:
             return True
@@ -571,7 +644,8 @@ def files_to_merge(filein):
     else:
         df = pd.DataFrame()
     if not df.empty and 'Accession' not in df.columns.to_list():
-        print(f'file {filein} does not contain the [ Accession ] column')
+        print(f'file {filein} does not contain the [ Accession ] column',
+                sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
     return df
 
@@ -648,7 +722,8 @@ def duplicated_columns(lst1, lst2):
             shared.remove('Accession')
             if shared:
                 dups = ','.join(shared)
-                print(f'Duplicated columns in additional dataframe:\n {dups}')
+                print(f'Duplicated columns in additional dataframe:\n {dups}',
+                        sep=' ', end='\n', file=sys.stdout, flush=True)
                 sys.exit(-1)
             else:
                 cols = lst2.remove('Accession')
@@ -656,7 +731,8 @@ def duplicated_columns(lst1, lst2):
     else:
         if lst2:
 
-            print('Accession column is not in additional dataframe')
+            print('Accession column is not in additional dataframe',
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
             sys.exit(-1)
         else:
             return
@@ -679,7 +755,8 @@ def basic_fig_parameters(df, x, y, size, color):
                          custom_data='most.common.pred.SVM.KNN.RF')
     else:
         print('Not enough information provided. '
-              'A basic figure will be rendered')
+              'A basic figure will be rendered',
+              sep=' ', end='\n', file=sys.stdout, flush=True)
         fig = px.scatter(df, x=x, y=y, size=size, color=color, size_max=10,
                          hover_name='Accession',
                          hover_data=['Accession'],
@@ -713,7 +790,8 @@ def figure_rendering(filein, x, y, size, color, dim, z='', verbosity=False):
 
 def args_needed(args):
     if args['figure_dimension'] is None:
-        print('dimension was not declared, declare 2D or 3D')
+        print('dimension was not declared, declare 2D or 3D',
+               sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
     if args['figure_dimension'].lower() == '3d' and args['x_axis'] is not None \
             and args['y_axis'] is not None and args['z_axis'] is not None:
@@ -722,7 +800,8 @@ def args_needed(args):
           and args['x_axis'] is not None and args['y_axis'] is not None):
         return
     else:
-        print('Figure dimension or axis arguments are incomplete')
+        print('Figure dimension or axis arguments are incomplete',
+               sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
 
 
@@ -968,7 +1047,8 @@ def ecalculator(odf, bname):
             effic.to_excel(out, sheet_name='Efficiency')
             modifications_per_psms.to_excel(out, sheet_name='Modif per peptide')
             common_modif.to_excel(out, sheet_name='Common modifications')
-    print('Efficiency has been calculated')
+    print('Efficiency has been calculated',
+           sep=' ', end='\n', file=sys.stdout, flush=True)
     return 'Done'
 
 #   ---  shared clusters identification   ---   #
@@ -1115,7 +1195,8 @@ def write_mydf(dfs_list, outname, hdbscan, cutoff, accessory_file):
                        if col in acc_cols]
         if len(shared_cols) != 0:
             print(f'Merge will avoid shared columns {shared_cols} between '
-                  'master_df and accessory file.\n')
+                  'master_df and accessory file.',
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
             merge_cols = ['Accession'] + [col for col in acc_cols if
                                           col not in shared_cols]
             final_df = pd.merge(pre_final_df,
@@ -1164,16 +1245,25 @@ def common_prediction(df, cols, hdbscan=False, cutoff=''):
     wdf = ndf.loc[:, cols]
     res_3 = find_common_terms_by_accession(wdf, cols, min_occurrences=3)
     res_4 = find_common_terms_by_accession(wdf, cols, min_occurrences=4)
+    cols.remove('SVM.prediction.threshold')
+    res_5 = find_common_terms_by_accession(wdf, cols, min_occurrences=2,
+                                           exclude='SVM')
     merge = pd.merge(res_3, res_4, on='Accession', how='outer')
+
     fdf = pd.merge(df, merge, on='Accession', how='left')
     return fdf
 
 
-def find_common_terms_by_accession(df, columns, min_occurrences):
+def find_common_terms_by_accession(df, columns, min_occurrences, exclude=''):
     results= []
     # Iterate through each row
-    m = f'best.pred.supported{min_occurrences}+marker'
-    c = f'most.common.pred.supported.{min_occurrences}+.by'
+    if exclude == '':
+        m = f'best.pred.supported{min_occurrences}+marker'
+        c = f'most.common.pred.supported.{min_occurrences}+.by'
+    else:
+        m = f'best.pred.supported{min_occurrences}.{exclude}+marker'
+        c = f'most.common.pred.supported.{min_occurrences}.{exclude}+.by'
+
     for idx, row in df.iterrows():
         # Count occurrences of each value in this row
         value_counts = row[columns].value_counts()
@@ -1216,7 +1306,8 @@ def experiments_exist(df1, df2, df1_type, df2_type):
             print('There is incongruence in the experiment declaration'
                   'among the psms and the pheno files\nExperiments '
                   f'declared are: {df1_type}: {df1_exps}\n{df2_type}: '
-                  f'{df2_exps}\nExiting program...')
+                  f'{df2_exps}\nExiting program...',
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
             sys.exit(-1)
     return
 
@@ -1244,3 +1335,219 @@ def tmt_sorted_df(df, tmt_channels):
     ordered_cols = remaining_cols + new_order
     sorted_df = df[ordered_cols]
     return sorted_df
+
+
+def filter_non_numeric(df, dataset):
+    # Filter out non-numeric columns and ensure all data is numeric
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+
+    if len(numeric_cols) == 0:
+        print(f"No numeric columns found in dataset {dataset}. "
+              f"Ensure the df dbtype of individual and merged df are "
+              f"float64.\nExiting program...",
+                sep=' ', end='\n', file=sys.stdout, flush=True)
+        sys.exit(-1)
+
+def optimize_thresholds(y_true, y_prob, pred_type):
+    '''
+    Find optimal thresholds using Youden's J statistic and precision.
+    IMPORTANT: This function should ONLY be called on validation data,
+    NEVER on test data to avoid data leakage!
+    '''
+    print(f"** WARNING: Optimizing thresholds on TRAINING data only!")
+    print(f"These thresholds will be applied to test data for final evaluation.")
+
+    n_classes = y_prob.shape[1]
+    thresholds = np.zeros((n_classes,))
+    precision = np.zeros((n_classes,))
+    recall = np.zeros((n_classes,))
+    f1 = np.zeros((n_classes,))
+    dic = {}
+    dic2 = {}
+    # Convert 1D array to one-hot encoded format if needed
+    if y_true.ndim == 1:
+        y_true = one_dim_2_hot_encoded(y_true=y_true, y_prob=y_prob)
+
+    for i in range(n_classes):
+        # obtaining threshold with roc curve
+        fpr, tpr, thresholds_roc = roc_curve(y_true[:, i], y_prob[:, i])
+        j_statistic = tpr - fpr
+        best_roc_threshold_idx = np.argmax(j_statistic)
+        best_roc_threshold = thresholds_roc[best_roc_threshold_idx]
+        # obtaining threshold with precision-recall pairs
+        precision_i, recall_i, thresholds_prec = precision_recall_curve(y_true[:, i],
+                                                                        y_prob[:, i])
+        # adjust the threshold to give more weight to precision or recall
+        # if recall is higher, then false negatives are minimized at the expense
+        # of potentially lower precision:
+        best_prec_threshold_idx = np.argmax(0.6*precision_i[:-1] +
+                                            0.4*recall_i[:-1])
+        best_prec_threshold = thresholds_prec[best_prec_threshold_idx]
+
+        # use combined approach to find optimal threshold:
+        thresholds[i] = (best_roc_threshold + best_prec_threshold) / 2
+        y_pred_roc = (y_prob[:, i] >= thresholds[i]).astype(int)
+        dic2[i] = list(y_pred_roc)
+        precision[i] = precision_score(y_true[:, i],
+                                       y_pred_roc,
+                                       average='binary',
+                                       zero_division=0)
+        recall[i] = recall_score(y_true[:, i],
+                                 y_pred_roc,
+                                 average='binary',
+                                 zero_division=0)
+        f1[i] = f1_score(y_true[:, i],
+                         y_pred_roc,
+                         average='binary',
+                         zero_division=0)
+        dic[i]= {'precision': precision[i],
+                 'recall': recall[i],
+                 'f1-score': f1[i]}
+    my_metrics = pd.DataFrame.from_dict(dic, orient='index')
+    # relax thresholds by 10%
+    orig_threshold_df = pd.DataFrame(thresholds, columns=['original threshold'])
+    relaxed_thresholds = thresholds * 0.9
+    relaxed_threshold_df = pd.DataFrame(relaxed_thresholds,
+                                     columns=['10% relaxed threshold'])
+
+    cat = pd.concat([orig_threshold_df, relaxed_threshold_df], axis=1).T
+
+    # y_pred adjusted with thresholds
+    y_pred_adj_df = pd.DataFrame(dic2)
+    return {'y_pred_adjusted.threshold': y_pred_adj_df ,
+            f'{pred_type}.thresholds': cat,
+            'relaxed thresholds': relaxed_thresholds,
+            'metrics':my_metrics}
+
+def predict_n_apply_thresholds(X_data, thresholds, model):
+    # a runtime warning is triggered here when an entry has no prediction at all
+    # this is handled by catching the warning but fillna with 0 later in the df
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action='ignore',
+                                category=RuntimeWarning,
+                                message='invalid value encountered in divide')
+        y_prob = model.predict_proba(X_data)
+    y_pred = (y_prob >= thresholds).astype(int)
+    return {'y_prob':y_prob, 'y_pred':y_pred}
+
+def one_dim_2_hot_encoded(y_true, y_prob):
+    n_classes = y_prob.shape[1]  # Get number of classes from probability matrix
+    y_true_onehot = np.zeros((len(y_true), n_classes))
+    for i in range(len(y_true)):
+        y_true_onehot[i, y_true[i]] = 1
+    y_true = y_true_onehot
+    return y_true
+
+
+def format_report(classif_report, inv_markers):
+    if isinstance(classif_report, pd.DataFrame):
+        classif_report = classif_report.reset_index(
+            ).rename(columns={'index': 'marker'})
+        classif_report['marker'] = classif_report[
+            'marker'].map(lambda x: inv_markers.get(x, x))
+        acc_df = classif_report
+    else:
+        rep = {'macro avg': 'macro_avg', 'weighted avg': 'weighted_avg',
+               'micro avg': 'micro_avg', 'samples avg': 'samples_avg'}
+        rep = dict((re.escape(k), v) for k, v in rep.items())
+        pattern = re.compile("|".join(rep.keys()))
+        class_report = pattern.sub(lambda m: rep[re.escape(m.group(0))],
+                                   classif_report)
+        cr = class_report.split('\n')[2:-1]
+        compartments = [line.split(' ') for line in cr
+                        if not line.startswith('\n')]
+        dic = {}
+        for lista in compartments:
+            values = [value.strip() for value in lista if value != '']
+            if values:
+                key = convert_if_numeric(values[0])
+                if values[0] != 'accuracy':
+                    dic[key] = [float(i) for i in values[1:]]
+                else:
+                    dic[key] = [' ', ' '] + [float(i) for i in values[1:]]
+        acc_df = pd.DataFrame.from_dict(dic)
+        acc_df = acc_df.T
+        acc_df.rename(columns={0:'Precision', 1: 'Recall',
+                               2: 'F1-score', 3: 'Support'}, inplace=True)
+        acc_df.reset_index(inplace=True)
+        acc_df.rename(columns={'index': 'marker'}, inplace=True)
+        acc_df['marker'] = acc_df['marker'].map(lambda x:
+                                                     inv_markers.get(x, x))
+    return acc_df
+
+
+def convert_if_numeric(x):
+    try:
+        return int(x)
+    except:
+        return str(x)
+
+
+def original_n_synthetic_markers(df, x_array, y_array, marker_dic, used_in):
+    # add labels to sets
+    y_df = pd.DataFrame(y_array, dtype=int, columns=['marker'])
+    y_df['compartment'] = y_df['marker'].map(lambda x: marker_dic.get(x, x))
+    # add y labels to x array
+    x_df = pd.DataFrame(x_array)
+    x_df['marker'] = y_df['marker'].to_list()
+    x_df['compartment'] = y_df['compartment'].to_list()
+    x_df['Accession'] = [f'SM-{x}' for x in range(x_df.shape[0])]
+
+    # Note: df contains original accessions only, not SM accessions
+    # create single markers df.
+    # for compatibility: move marker to compartment and add encoded marker
+    df = df.copy(deep=True)
+    df.rename(columns={'marker': 'compartment'}, inplace=True)
+    dir_dic = {v:k for k, v in marker_dic.items()}
+    df['marker'] = df['compartment'].map(lambda x: dir_dic.get(x, x))
+    #
+    cat = pd.concat([df, x_df])
+    cat = cat.copy(deep=True)
+    cat.set_index('Accession', inplace=True)
+
+    sep_markers = deduplicate_keeping_indices(cat, df['Accession'].to_list())
+    sep_markers['used in'] = used_in
+    accessions = [acc for acc in sep_markers['Accession'].to_list() if not
+                  acc.startswith('SM-')]
+    return {'segregated markers': sep_markers, 'accessions': accessions}
+
+
+def deduplicate_keeping_indices(df, indices_to_keep):
+    df = df.copy(deep=True)
+    # get duplicates
+    duplicates = df.duplicated(subset=df.columns.tolist(), keep=False)
+    df['is_duplicate'] = duplicates
+    dfd = df[duplicates]
+    # get synthetic marker duplicate index names
+    sm_duplicates = dfd[~dfd.index.isin(indices_to_keep)]
+    # keep only non-duplicates sm
+    df_sm = df[~df.index.isin(sm_duplicates.index.to_list() + indices_to_keep)]
+    # from duplicates keep only those with index names present in
+    # indices_to_keep Note: not all indexes are present in indices_to_keep
+    dfd = dfd[dfd.index.isin(indices_to_keep)]
+    # concatenate all non duplicate entries
+    df_filtered_final = pd.concat([dfd, df_sm])
+    del df_filtered_final ['is_duplicate']
+    return df_filtered_final.reset_index()
+
+
+def parameters_of_interest(searched_parameters, estimated_parameters):
+    full_params = estimated_parameters.best_estimator_.get_params()
+    best_params = {}
+    for k in searched_parameters.keys():
+        if k in full_params.keys():
+            v = k.split('__')[-1]
+            if isinstance(full_params[k], list):
+                best_params[v] = full_params[k]
+            else:
+                best_params[v] = [full_params[k]]
+        else:
+            print('Missing hyperparameter', k)
+
+    return best_params
+
+def format_elapsed_time(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:05.2f}"

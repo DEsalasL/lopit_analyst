@@ -9,7 +9,6 @@ from typing import Optional
 
 
 def gpu_umap_safe(dfs: tuple, dataset: str,
-                  markers__map: dict,
                   n_neighbors: int = 15, min_dist: float = 0.1,
                   n_components: int = 2) -> Optional[pd.DataFrame]:
     """GPU UMAP with memory management"""

@@ -7,6 +7,8 @@ import pandas as pd
 from venn import venn as venny
 from scipy.stats import gmean
 import psm_diagnostics as dia
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
 import matplotlib.pyplot as plt
 from sklearn.impute import KNNImputer
 

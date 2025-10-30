@@ -4,6 +4,8 @@ import sys
 import numpy as np
 import lopit_utils
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
 import seaborn as sns
 import missingno as msno
 import patchworklib as pw

@@ -7,12 +7,10 @@ import gpu_memory_management as gmm
 
 
 
-def gpu_tsne_safe(df: pd.DataFrame, dataset: str,
-                  perplexity: float = 30.0,
-                  n_iter: int = 1000, learning_rate: float = 200.0,
-                  method: str = 'barnes_hut', components: int = 2) -> Optional[
-    pd.DataFrame]:
-    """GPU t-SNE with memory management"""
+def gpu_tsne_safe(df: pd.DataFrame, dataset,
+                  perplexity, n_iter, learning_rate,
+                  init, method, components=2):
+
     if not gmm._gpu_available:
         return None
 
@@ -26,21 +24,19 @@ def gpu_tsne_safe(df: pd.DataFrame, dataset: str,
         ndf = odf.loc[:, cols].copy(deep=True)
         cdf = cudf.DataFrame.from_pandas(ndf)
 
-
-
         if method == 'barnes_hut':
             theta = 0.5
-            tsne = TSNE(n_components=components, random_state=1155,
-                        learning_rate=300, init='random', perplexity=perplexity,
+            tsne = TSNE(n_components=components, random_state=347,
+                        learning_rate=250, init=init, perplexity=perplexity,
                         method=method, n_iter=5000, angle=theta,
-                        exaggeration_iter=300,
-                        n_neighbors=3 * perplexity)
+                        exaggeration_iter=450,
+                        n_neighbors=int(3 * perplexity))
         else:
-            tsne = TSNE(n_components=components, random_state=1155,
-                        learning_rate=300.0, init='random',
+            tsne = TSNE(n_components=components, random_state=1111,
+                        learning_rate=learning_rate, init=init,
                         perplexity=perplexity,
-                        method=method, n_iter=10000, exaggeration_iter=300,
-                        n_neighbors=3 * perplexity)
+                        method=method, n_iter=n_iter, exaggeration_iter=450,
+                        n_neighbors=int(3 * perplexity))
 
         tsne_result = tsne.fit_transform(cdf)
         embedding_df = tsne_result.to_pandas()

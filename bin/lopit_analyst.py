@@ -1,7 +1,8 @@
 '''#!/home/dsalas/.conda/envs/lopit_analyst_2025/bin/python'''
-
 import os
 import sys
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
 import charms
 import lopit_utils
 import lopit_menu as lm
@@ -10,7 +11,7 @@ import data_filtering as flt
 import psm_diagnostics as dia
 import clustering_data as clt
 import mv_imp_norm_aggr as iagg
-import svm_knn_rf_clustering as sml
+import supervised_machine_learning as sml
 
 #   Info  #
 __author__ = ['Dayana Salas-Leiva']
@@ -50,7 +51,8 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
         return pheno_data
     elif args['data_type'] == 'merge':
         if args['markers_file'] is None and args['additional_file'] is None:
-            print('At least one file must be declared for merging')
+            print('At least one file must be declared for merging',
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
             sys.exit(-1)
         if (args['markers_file'] is not None
                 and args['additional_file'] is not None):
@@ -114,7 +116,8 @@ def prepare_input(args):  # ---  workflow 0- subparser_name: feature_prep
             sys.exit(-1)
     else:
         offender = args['data_type']
-        print(f'Input argument -t {offender} for data_type is not allowed.')
+        print(f'Input argument -t {offender} for data_type is not allowed.',
+              sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
 
 
@@ -145,7 +148,8 @@ def mv_removal(args):  # workflow 3- subparser: mv_removal
         try:
             col_rm_threshold = float(args['remove_columns'])
         except ValueError:
-            print(f"rm value is not a number: {args['remove_columns']}")
+            print(f"rm value is not a number: {args['remove_columns']}",
+                  sep=' ', end='\n', file=sys.stdout, flush=True)
             sys.exit(-1)
         mv_removed = mvr.run_heatmap_explorer(args['input'], args['out_name'],
                                               col_rm_threshold, args['verbose'])
@@ -157,7 +161,8 @@ def mv_removal(args):  # workflow 3- subparser: mv_removal
 
 def impute_and_aggregate(args):  # workflow 4- subparser: imputation-aggregation
     if args['mar'] is None and args['mnar'] is None:
-        print('channels for at least imputation method must be declared')
+        print('channels for at least imputation method must be declared',
+               sep=' ', end='\n', file=sys.stdout, flush=True)
         sys.exit(-1)
 
     imp_aggregated = iagg.imp_agg_normalize(args['input'],
@@ -175,40 +180,58 @@ def impute_and_aggregate(args):  # workflow 4- subparser: imputation-aggregation
 
 
 def cluster_data(args):  # workflow 5- subparser: clustering
-    clusters = clt.cluster_analysis(args['input'],
-                                    args['protein_features'],
-                                    args['group_combinations'],
-                                    args['method_tsne'],
-                                    args['perplexity'],
-                                    args['markers_file'],
-                                    args['out_name'],
-                                    args['hdbscan_on_umap'],
-                                    args['cluster_selection_epsilon'],
-                                    args['min_dist'],
-                                    args['min_size'],
-                                    args['min_sample'],
-                                    args['n_neighbors'],
-                                    args['additional_file'],
-                                    args['pca'],
-                                    args['feature_projection'],
-                                    args['projections_enabled'],
-                                    args['verbose'])
+    clusters = clt.cluster_analysis(files_list=args['input'],
+                                    features=args['protein_features'],
+                                    datasets=args['group_combinations'],
+                                    tsne_method=args['tsne_method'],
+                                    tsne_perplexity=args['tsne_perplexity'],
+                                    tsne_learning_rate=args['tsne_learning_rate'],
+                                    tsne_n_iter=args['tsne_n_iter'],
+                                    tsne_init=args['tsne_init'],
+                                    mymarkers=args['markers_file'],
+                                    fileout=args['out_name'],
+                                    hdbscan_epsilon=args['hdbscan_epsilon'],
+                                    hdbscan_min_size=args['hdbscan_min_size'],
+                                    hdbscan_min_sample=args['hdbscan_min_sample'],
+                                    umap_n_neighbors=args['umap_n_neighbors'],
+                                    umap_min_dist=args['umap_min_dist'],
+                                    hdbscan_on_umap=args['hdbscan_on_umap'])
     return clusters
 
 
 def predict_compartments(args):  # workflow 7 subparser sml
-    dfs_dic, markers = sml.traverse(args['input'],
-                                    args['out_name'],
-                                    args['recognition_motif'],
-                                    args['markers_file'],
-                                    args['markers_type'],
-                                    args['balancing_method'],
-                                    args['verbose'])
 
-    predictions = sml.prediction(dfs_dic,
-                                 args['balancing_method'],
-                                 markers, args['additional_file'],
-                                 args['verbose'])
+    log = f'{args['out_name']}.log'
+    sys.stdout = open(log, 'w')
+    print(args, file=sys.stdout, flush=True)
+
+    main_dic = sml.prep(infile=args['input'],
+                                fileout=args['out_name'],
+                                markers_file=args['markers_file'],
+                                additional_file=args['additional_file'],
+                                cat_cols=args['categorical_columns'],
+                                cont_cols=args['continuous_columns'],
+                                cont_keep=args['continuous_to_keep'])
+
+    predictions = sml.prediction(main_df=main_dic['df'],
+                                 balance_method=args['balancing_method'],
+                                 threshold=args['threshold'],
+                                 scaling=args['scaling'],
+                                 scaling_method=args['scaling_method'],
+                                 markers_df=main_dic['markers_df'],
+                                 additional_file=main_dic['additional_file'],
+                                 cat_cols=main_dic['categorical_columns'],
+                                 cont_cols=main_dic['continuous_columns'],
+                                 cont_keep=main_dic['continuous_to_keep'],
+                                 feature_selection=args['feature_selection'],
+                                 outname=args['out_name'],
+                                 sampling_strategy=args['sampling_strategy'],
+                                 n_jobs=args['n_jobs'],
+                                 calibration=args['calibration'],
+                                 augment_calibration=args['augment_calibration_set'],
+                                 training_fraction=args['training_fraction'],
+                                 test_fraction=args['test_fraction'],
+                                 calibration_fraction = args['calibration_fraction'])
     return predictions
 
 
@@ -216,8 +239,11 @@ def predict_compartments(args):  # workflow 7 subparser sml
 
 def main():
     #  --- user arguments ---  #
-    arguments = lm.arguments()
 
+    arguments = lm.arguments()
+    '''
+    log = f'lopit_analyst_{arguments['subparser_name']}.log'
+    sys.stdout = open(log, 'w')'''
 
     #   ---   subroutines   ---   #
     if arguments['subparser_name'] == 'data_prep':
@@ -236,8 +262,6 @@ def main():
         _ = impute_and_aggregate(arguments)
     elif arguments['subparser_name'] == 'clustering':
         _ = cluster_data(arguments)
-    # elif arguments['subparser_name'] == 'full_analysis':
-    #     _ = automated_analysis(arguments)
     elif arguments['subparser_name'] == 'sml':
         _ = predict_compartments(arguments)
 

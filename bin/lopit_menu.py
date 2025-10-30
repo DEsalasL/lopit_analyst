@@ -89,6 +89,9 @@ unwrapped = {
     "m15t2": "tSNE specific flag: perplexity value. It should be between 5-50, "
              "the closest to 50 the tighter the groups will be. "
              "Default=sqrt(dataset size) root of dataset size",
+    "m15t3": "tSNE specific flag: learning rate. Default=350",
+    "m15t4": "tSNE specific flag: number of iterations. Default=10000",
+    "m15t5": "tSNE specific flag: initialization method. Default=random",
     "m15h1": "HDBSCAN specific flag: indicate the value for the "
              "'cluster_selection_epsilon' parameter,  it should be between 0.0 "
              "< 0.05 otherwise very few clusters will be predicted. Default=0.0",
@@ -132,25 +135,6 @@ unwrapped = {
     "m26": "Column header to search the experiment prefixes in",
     "m27": "Signal/noise ratio threshold used for filtering (integer). "
            "Default=10",
-    "m28": "Balancing method used to draw synthetic markers. Options: "
-           "'borderline', 'over_under', 'smote' or 'unbalanced'. 'unbalanced' "
-           "will not generate synthetic markers, hence, it will use the "
-           "markers as originally provided",
-    "m28-1": "If the marker file contains only the columns 'Accession' and "
-            "'marker' all those markers will be used for supervised machine "
-            "learning in all combinations. This corresponds to 'global' type."
-            "If instead, the marker file contains 'Accession', and multiple "
-            "column headers that match the number and name of the main "
-            "directories in Step5, then the program will match each column "
-            "header (a.k.a. combination) to its respective input file in the "
-            "Step5 directory (or its analog when using foreign data). This "
-            "corresponds to 'local' type. Note: directory names "
-            "correspond to the experiment combinations. options: 'global', "
-            "'local'",
-    "m29": "Unambiguous substring to recognize the input file. For example, "
-           "if the file of interest starts with 'Final_df' and there are no "
-           "other files that start with that substring, then the substring is "
-           "'Final_df*'",
     "m30": "Minimum threshold to remove channels with missing values (value "
            "from 0 - 1) e.g., 0.1 will remove all channels containing more "
            "than 10 percent missing values, but will keep those channels that "
@@ -158,7 +142,38 @@ unwrapped = {
 
     "m32": "Turn on verbosity (type True). Default: False",
     "m33": "Projections will be drawn if protein features file is provided",
-    "m34": "Create all HDBSCAN projections. Default: False"}
+    "m34": "Create all HDBSCAN projections. Default: False",
+    "m35": "Minimum threshold for prediction selection.",
+    "m36": "Scale the data before prediction. Default: False",
+    "m37": "File containing the headers of the continuous columns "
+           "(one header per line)",
+    "m38": "File containing the headers of the categorical columns "
+           "(one header per line)",
+    "m39": "Continuous columns to keep if feature selection is not None. "
+           "Default: None",
+    "m40": "Number of features to retain. Default: None",
+    "m41": "Method to scale the data. Options: StandardScaler, "
+           "MinMaxScaler, MaxAbsScaler, RobustScaler. Default: RobustScaler",
+    "m42": "Sampling strategy for data augmentation. Options: minority, "
+           "not_minority, not_majority, all, auto, keep_ratio. Default: auto ",
+    "m43" : "Data augmentation method. Options: Smote, BorderlineSmote or SmoteNC. "
+            "If categorical columns are declared: Default: SmoteNC, "
+            "otherwise Default: Smote",
+    "m44": "Number of parallel jobs to be run during hyperparameter tuning. number must be consistent with "
+           "cpu allocated for running the program. Default: None",
+    "m45": 'Calibrate probabilities. Note: it should only be applied if training dataset is large. '
+           'Default: False',
+    "m46": "Proportion of samples to be used as test set (value between 0,1). "
+           "Default: 0.25",
+    "m47": "Proportion of samples to be used for calibration. If "
+           "calibration is requested (value between 0,1). Default: None",
+    "m48": "Proportion of samples for training the model (value between 0,1). "
+           "Default: 0.75",
+    "m49": "Apply data augmentation to calibration set. When set to true the\n"
+            "sampling_strategy declared is used for both training and calibration sets.\n"
+           " Default: False"
+    }
+
 
 other_ms = {k: '\n'.join(wrap(unwrapped[k], 70))
             for k in unwrapped.keys()}
@@ -225,8 +240,10 @@ dic_5 = {'-i': ['--input', str, other_ms['m16'], True],
          '-f': ['--protein_features', str, other_ms['m11'], False],
          '-t': ['--tsne_method', str, other_ms['m15t1'], True, 'exact'],
          '-x': ['--tsne_perplexity', int, other_ms['m15t2'], False, 50],
-         '-e': ['--hdbscan_epsilon', float, other_ms['m15h1'],
-                False, 0.0],
+         '-y': ['--tsne_learning_rate', int, other_ms['m15t3'], False, 350],
+         '-w': ['--tsne_n_iter', int, other_ms['m15t4'], False, 10000],
+         '-z': ['--tsne_init', str, other_ms['m15t5'], False, 'random'],
+         '-e': ['--hdbscan_epsilon', float, other_ms['m15h1'], False, 0.0],
          '-cs': ['--hdbscan_min_size', int, other_ms['m15h2'], False],
          '-ms': ['--hdbscan_min_sample', int, other_ms['m15h3'], False],
          '-md': ['--umap_min_dist', float, other_ms['m15u1'], False, 0.1],
@@ -242,14 +259,27 @@ dic_5 = {'-i': ['--input', str, other_ms['m16'], True],
 dic_7 = {'-i': ['--input', str, other_ms['m16-1'], True],
          '-o': ['--out_name', str, 'output prefix or suffix', True],
          '-m': ['--markers_file', str, other_ms['m10a'], True],
-         '-t': ['--markers_type', str, other_ms['m28-1'], True],
-         '-r': ['--recognition_motif', str, other_ms['m29'], True],
-         '-b': ['--balancing_method', str, other_ms['m28'], True],
          '-a': ['--additional_file', str, other_ms['m10b'], False],
-         '-v': ['--verbose', bool, other_ms['m32'], False]}
+         '-v': ['--verbose', bool, other_ms['m32'], False],
+         '-p': ['--threshold', float, other_ms['m35'], True],
+         '-s': ['--scaling', bool, other_ms['m36'], False],
+         '-sc': ['--scaling_method', str, other_ms['m41'], False,
+                 'RobustScaler'],
+         '-ss': ['--sampling_strategy', str, other_ms['m42'], False],
+         '-b': ['--balancing_method', str, other_ms['m43'], False],
+         '-con': ['--continuous_columns', str, other_ms['m37'], True],
+         '-cat': ['--categorical_columns', str, other_ms['m38'], False],
+         '-k': ['--continuous_to_keep', str, other_ms['m39'], False],
+         '-f': ['--feature_selection', int, other_ms['m40'], False],
+         '-n': ['--n_jobs', int, other_ms['m44'], True],
+         '-cm': ['--calibration', bool, other_ms['m45'], False],
+         '-ts': ['--test_fraction', float, other_ms['m46'], False, 0.25],
+         '-tt': ['--training_fraction', float, other_ms['m48'], False, 0.75],
+         '-cs': ['--calibration_fraction', float, other_ms['m47'], False, None],
+         '-acs': ['--augment_calibration_set', bool, other_ms['m49'], False],
+         }
 
 #   --- subparsers  ---   #
-
 
 def default(dic, k):
     if len(dic[k]) == 5:
@@ -311,13 +341,17 @@ def path_check(arg_in):
 def argument_check(user_args):
     print('Checking arguments')
     input_files = ['input', 'accessory_data', 'protein_data', 'json_dump',
-                   'markers_file', 'protein_features', 'additional_file']
+                   'markers_file', 'protein_features', 'additional_file',
+                   'categorical_columns', 'continuous_columns']
     allowed_search_engines = ['Mascot', 'Sequest.HT']
     allowed_columns = ['Spectrum.File', 'File.ID']
     allowed_tsne_methods = ['exact', 'barnes_hut', 'fft']
-    allowed_balancing_methods = ['borderline', 'over_under',
-                                 'smote', 'unbalanced']
-    allowed_markers_type = ['global', 'local']
+    allowed_balancing_methods = ['Smote', 'SmoteNC', 'BordelineSmote']
+    allowed_sampling_methods = ['minority','not_minority', 'not_majority',
+                                'all', 'auto', 'keep_ratio']
+    allowed_scaling_methods = ['StandardScaler', 'MinMaxScaler',
+                               'MaxAbsScaler', 'RobustScaler']
+
     for k in user_args.keys():
         if k in input_files:
             if user_args[k] is None:
@@ -332,11 +366,12 @@ def argument_check(user_args):
                     user_args.update({k: path_check(user_args[k])})
         if user_args[k] is not None and k == 'search_engine':
             if user_args[k] not in allowed_search_engines:
-                print('search engine is not in allowed engines')
+                print('search engine is not one of the allowed '
+                      'search engines')
                 return sys.exit(-1)
         if user_args[k] is not None and k == 'use_column':
             if user_args[k] not in allowed_columns:
-                print('declared column is not in allowed columns')
+                print('declared column is not a data column')
                 return sys.exit(-1)
         if k == 'tsne_method':
             if user_args[k] not in allowed_tsne_methods:
@@ -344,15 +379,25 @@ def argument_check(user_args):
                       'barnes_hut or exact')
                 return sys.exit(-1)
         if k == 'balancing_method':
+            print(f'balancing_method is set to {user_args[k]}')
+            if user_args[k] is None and user_args['categorical_columns'] is None:
+                user_args[k] = 'Smote'
+            if user_args['categorical_columns'] is not None:
+                user_args[k] = 'SmoteNC'
             if user_args[k] not in allowed_balancing_methods:
                 print('unrecognized balancing method, please choose among: '
                       f'{allowed_balancing_methods}')
                 return sys.exit(-1)
-        if k == 'markers_type':
-            if user_args[k] not in allowed_markers_type:
-                print('unrecognized marker type, please choose among: '
-                      f'{allowed_markers_type}')
+        if k == 'sampling_strategy':
+            if user_args[k] is None:
+                user_args[k] = 'auto'
+            if user_args[k] not in allowed_sampling_methods:
+                print('unrecognized sampling strategy, please choose among: '
+                      f'{allowed_sampling_methods}')
                 return sys.exit(-1)
+            if '_' in user_args['sampling_strategy']:
+                sampling_strategy = user_args['sampling_strategy'].replace('_', ' ')
+                user_args['sampling_strategy'] = sampling_strategy
         if k == 'perplexity':
             try:
                 v = int(user_args[k])
@@ -378,8 +423,49 @@ def argument_check(user_args):
             user_args.update({k: False})
         if user_args[k] is None and k == 'projections_enabled':
             user_args.update({k: False})
+        if user_args[k] is not None and k == 'scaling_method':
+            if user_args[k] not in allowed_scaling_methods:
+                print('unrecognized scaling method')
+                return sys.exit(-1)
+        if (k == 'feature_selection' and
+                user_args['continuous_to_keep'] is not None
+                and user_args['feature_selection'] is None):
+            print('The argument `continuous_to_keep` will be ignored as you \n'
+                  'have declared continuous columns to keep, but not indicated\n'
+                  ' the number of features to select.\n')
+        if k == 'test_size' or k == 'training_size' or k == 'calibration_size':
+            _ = training_sizes(train_size=user_args['training_size'],
+                               test_size=user_args['test_size'],
+                               calibration_size=user_args['calibration_size'],
+                               calibration=user_args['calibration'])
     my_args = argument_processing(user_args)
     return my_args
+
+
+def training_sizes(train_size, test_size, calibration_size, calibration):
+    if calibration:
+        if calibration_size is None:
+            print('You must provide a --calibration_size value between 0,1')
+            sys.exit(-1)
+        x = train_size + test_size + calibration_size
+        if x != 1:
+            print('The sum of the training, test and calibration sets is not '
+                  '1. Please adjust the proportions.\nNote: You must change the'
+                  ' defaults of these sets via command line.')
+            return sys.exit(-1)
+        else:
+            return train_size, test_size, calibration_size
+
+    else:
+        x = train_size + test_size
+        if x != 1:
+            print('The sum of the training and test sets is not 1. Please '
+                  'adjust the proportions.')
+            return sys.exit(-1)
+        else:
+          return train_size, test_size, None
+
+
 
 
 def ren_cols(exps_prefs):
@@ -509,7 +595,6 @@ def checkargs(arguments):
         else:
             print(f'No file contains the declared suffix {arguments.input}')
             sys.exit(-1)
-
     return arguments
 
 

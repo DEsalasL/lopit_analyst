@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import plotnine as p9
 import seaborn as sns
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
 import matplotlib.pyplot as plt
 
 __author__ = 'Dayana E. Salas-Leiva'

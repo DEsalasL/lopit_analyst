@@ -3,6 +3,8 @@ import re
 import sys
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
 import seaborn as sns
 import matplotlib.pyplot as plt
 from itertools import combinations
