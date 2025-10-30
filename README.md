@@ -335,19 +335,21 @@ Three supervised machine learning methods are implemented: Support vector machin
 - Scaling:
   You must set '--scaling False' if you are using solely TMT data that was preprocessed with the lopit_analyst_workflow (as it produces normalized TMT data). However, you must set '--scaling True' if you want to use calc.pI (isoelectric point). 
 - Markers:
-  1) As the number of proteins in the organelles vary, usually, a variable or unbalanced number of markers per organelle is available for machine learning. Such unbalance could lead to biases during the classification process. Hence, the workflow allows the user to balance training set via generation of synthetic markers (e.g., ‘borderline’, or ‘smote’).  
-  2) The workflow splits the provided markers according to specified fractions:
-     - training and test, which yield classifications with uncalibrated probabilities, or
-     - training, calibration, and test sets, which yield classifications with calibrated probabilities. To enable this behavior set '--calibration True' and provide the corresponding fraction value for each set.  Depending on the number or markers per organelle, you might have very few markers for calibration and in such a case it will be unrealiable. For this reason, the workflow allows you to generate synthetic markers by setting '--augment_calibration_set True'.
+  1) As the number of proteins in the organelles vary, usually, a variable or unbalanced number of markers per organelle is available for machine learning. Such unbalance could lead to biases during the classification process. Hence, the workflow allows the user to balance training set via generation of synthetic markers (e.g., ‘Borderline’, or ‘Smote’) and to select the desired strategy (e.g., all_mminority, not_minority, not_majority, all, auto, keep_ratio). For information on the strategies see https://imbalanced-learn.org/stable/references/generated/imblearn.over_sampling.SMOTE.html
+  2) The workflow splits the provided markers according to user-specified fractions:
+     - training and test sets to yield classifications with uncalibrated probabilities, or
+     - training, calibration, and test sets to yield classifications with calibrated probabilities. To enable this behavior set '--calibration True' and provide the corresponding fraction value for each set.  Depending on the number or markers per organelle, you might have very few markers for calibration and in such a case calibration will be unrealiable. For this reason, the workflow allows you to generate synthetic markers by setting '--augment_calibration_set True'.
 - Parallel processing:
-  To enable paralell processing you can pass the number of CPUs to be used for the process. for example, n_jobs 1, n_jobs 2 will allow you to use 1 or 2 CPUs respectively. You can also use -2 to use all but 1 available CPUs. However, you must be careful when declaring n_jobs -2 as you might interfere with other concurrent processes in the system.
+  To enable paralell processing you can pass the number of CPUs to be used for the process. For example, n_jobs 1 or n_jobs 2 will allow you to use 1 or 2 CPUs, respectively. You can also use -2 to use all but 1 available CPUs. However, you must be careful when declaring n_jobs -2 as you might interfere with other concurrent processes in the system.
+
+** Note: for each method you will find a directory containing the metrics needed to judge whether you should or not trust the predicted classification.**
 
 \# SML by master protein accession:
 ```
-lopit_analyst.py sml --input Step5__Clustering_Pmar_protein_level/PL1PL2PLNPLO/All_results_PL1PL2PLNPLO.tsv \
+lopit_analyst.py sml --input Step5__Clustering_Pmar_protein_level/PL1PL2PLNPLO/All_results_PL1PL2PLNPLO.markers_mapped.tsv \
                      --out_name Pmar_protein_level_smote \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
-                     --balancing_method smote \
+                     --balancing_method Smote \
                      --sampling_strategy auto \
                      --threshold 0.99 \
                      --scaling True \
@@ -367,8 +369,7 @@ A new directory for each directory in Step5 is created containing:
 ### Maing output:
 - Final_df_<experiment_combination>.SML.Supervised.ML.tsv
 ### Additional outputs
-- original and synthetic markers used during training, validation, and test:  
-  <experiment_combination>_original_and_synthetic_markers.tsv
+- 
 - Assessment metrics by experiment (precision, recall, f1-score, support):
   SVM.<experiment_combination>.assessment.metrics.xlsx, 
   RF.<experiment_combination>.assessment.metrics.xlsx, 
