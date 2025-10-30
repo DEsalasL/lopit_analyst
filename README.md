@@ -327,8 +327,11 @@ Within newly created ‘Step5__Clustering_Pmar_peptide_level’:same outputs as 
 
 
 # Step 6. Supervised machine learning classification (sml)
-Four supervised machine learning methods are implemented: Support vector machine (SVM), Random Forest (RF), and ensemble by stacking SVM and RF as base estimators, and RF as metaestimator. For each method the best hyperparameters for a given dataset are obtanined and used for training and classification. The variable number of proteins working in different organelles, usually means a variable number of available markers per organelle, and may lead to biases during classification process. A way to mitigate such a bias is to use a balanced training set via generation of synthetic markers (e.g., ‘borderline’, or ‘smote’).  
-A common prediction is also generated for stand-alone predictions with SVM and RF.  TAGM classification may be added at a later stage if provided, then HDBSCAN is replaced for TAGM for the three and four majority rule classification.
+Three supervised machine learning methods are implemented: Support vector machine (SVM), Random Forest (RF), and ensemble by stacking SVM and RF as base estimators, with RF as metaestimator. For each method the best hyperparameters for a given dataset are obtanined and used for training and classification. 
+specifying columns to be used in the analysis:
+Scaling: you must set '--scaling False' if you are using only TMT data that was preprocessed with lopit_analyst_workflow. However, you must '--scaling True' if you want to use calc.pI (isoelectric point). 
+As the number of proteins in the organelles vary, usually, a variable or unbalanced number of markers per organelle is available for machine learning. Such unbalance could lead to biases during the classification process. Hence, the workflow allows the user to balance training set via generation of synthetic markers (e.g., ‘borderline’, or ‘smote’).  
+A common prediction is also generated for stand-alone predictions with SVM and RF. 
 
 \# SML by master protein accession:
 ```
