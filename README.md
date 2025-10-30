@@ -330,7 +330,7 @@ Within newly created ‘Step5__Clustering_Pmar_peptide_level’:same outputs as 
 Three supervised machine learning methods are implemented: Support vector machine (SVM), Random Forest (RF), and ensemble by stacking SVM and RF as base estimators, with RF as metaestimator. For each method the best hyperparameters for a given dataset are obtanined and used for training and classification. A common prediction is also generated for stand-alone predictions with SVM and RF
 - How to specify the columns to be used in the analysis:
    1) You must provide a txt file containing the names of the continous columns in the input file (--continuous_columns Pmarinus.continuous_cols.txt).
-      The workflow also allows the inclusion of categorical data, but unfortunately, the methods implemented here do not seem work well with such a data and you should not include such a data, if you do so, do it at your own risk.
+      The workflow also allows the inclusion of categorical data, but unfortunately, the methods implemented here do not seem work well with such data and you should not include it, if you do so, do it at your own risk.
    2) You can either use all of the specified continuous columns or apply a the '--feature_selection' flag to select the most informative continuous columns in your data.
 - Scaling:
   You must set '--scaling False' if you are using solely TMT data that was preprocessed with the lopit_analyst_workflow (as it produces normalized TMT data). However, you must set '--scaling True' if you want to use calc.pI (isoelectric point). 
