@@ -279,15 +279,16 @@ This step will carry out dimensionality reduction via tSNE and UMAP (both done o
 lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_protein_level/df_for_clustering \
                             --out_name Pmar_protein_level \
                             --group_combinations all \
-                            --method_tsne exact \
-                            --perplexity 50 \
-                            --cluster_selection_epsilon 0.025 \
-                            --min_size 6 \
-                            --min_dist 0.25 \
-                            --pca True \
-                            --feature_projection True \
-                            --markers_file Pmar_385markers.19359.12112024.capitalized.tsv \
-                            --protein_features Formatted_input_data_Pmar/Pmar_formatted_protein_features.tsv
+                            --tsne_method exact \
+                            --tsne_perplexity 50 \
+                            --tsne_learning_rate 350 \
+                            --tsne_n_iter 10000 \
+                            --tsne_init random \
+                            --hdbscan_epsilon 0.025 \
+                            --hdbscan_min_size 6 \
+                            --umap_min_dist 0.25 \
+                            --markers_file Pmar_385markers.19359.12112024.capitalized.tsv 
+
 ```
 ### Outputs produced: 
 Within newly created ‘Step5__Clustering_Pmar_acc’:
@@ -300,18 +301,19 @@ Within newly created ‘Step5__Clustering_Pmar_acc’:
 
 \# Missing value imputation and aggregation of PSMs by master protein accession and psm sequence (peptide level):
 ```
-lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_peptide_level/df_for_clustering \
+lopit_analyst.py clustering --input Step4__PSM_Normalization_Pmar_protein_level/df_for_clustering \
                             --out_name Pmar_peptide_level \
                             --group_combinations all \
-                            --method_tsne exact \
-                            --perplexity 50 \
-                            --cluster_selection_epsilon 0.025 \
-                            --min_size 6 \
-                            --min_dist 0.25 \
-                            --pca True \
-                            --feature_projection True \
-                            --markers_file Pmar_385markers.19359.12112024.capitalized.tsv \
-                            --protein_features Formatted_input_data_Pmar/Pmar_formatted_protein_features.tsv
+                            --tsne_method exact \
+                            --tsne_perplexity 50 \
+                            --tsne_learning_rate 350 \
+                            --tsne_n_iter 10000 \
+                            --tsne_init random \
+                            --hdbscan_epsilon 0.025 \
+                            --hdbscan_min_size 6 \
+                            --umap_min_dist 0.25 \
+                            --markers_file Pmar_385markers.19359.12112024.capitalized.tsv 
+
 ```
 ### Outputs produced: 
 Within newly created ‘Step5__Clustering_Pmar_peptide_level’:same outputs as above but by peptide.
@@ -329,12 +331,21 @@ Four supervised machine learning methods are implemented: Support vector machine
 
 \# SML by master protein accession:
 ```
-lopit_analyst.py sml --input Step5__Clustering_Pmar_protein_level \
+lopit_analyst.py sml --input Step5__Clustering_Pmar_protein_level/PL1PL2PLNPLO/All_results_PL1PL2PLNPLO.tsv \
                      --out_name Pmar_protein_level_smote \
-                     --recognition_motif  Final_df_ \
                      --markers_file  Pmar_385markers.19359.12112024.capitalized.tsv \
-                     --markers_type global \
-                     --balancing_method smote \
+                     --balancing_method SmoteNC \
+                     --sampling_strategy auto \
+                     --threshold 0.99 \
+                     --scaling True \
+                     --continuous_columns Pmarinus.continuous_cols.txt \
+                     --n_jobs -2  \
+                     --out_name $output_dir\protein_smote_0.99 \
+                     --calibration True  \
+                     --test_fraction 0.2 \
+                     --training_fraction 0.5 \
+                     --calibration_fraction 0.3 \
+                     --augment_calibration_set True \
                      --additional_file Pmarinus.eval0.001.PTHR17-Score.tsv
 ```
 ### Outputs produced: 
